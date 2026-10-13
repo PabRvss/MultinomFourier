@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 typedef struct {
     real_t log_prob;
@@ -12,7 +12,7 @@ typedef struct {
     const real_t* restrict probs;
     real_t* restrict log_probs;
     cell_t* restrict matrix;
-    quad_t p0;
+    mf_quad_t p0;
     real_t r0;
     real_t T;
     real_t W;

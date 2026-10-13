@@ -39,8 +39,10 @@ default), \code{"chi2"} (Pearson's \eqn{\mathcal{X}^2}{X^2}), \code{"pd"}
 multinomial test). See Details.}
 
 \item{lambda}{Parameter \eqn{\lambda} of the power-divergence statistic; used
-only when \code{stat = "pd"}, and then required (there is no default);
-a warning is issued if it is given for another statistic.}
+only when \code{stat = "pd"}, and then required (there is no default). Must
+be a single finite real number strictly greater than -1 (\eqn{\lambda > -1});
+values \eqn{\lambda \le -1} produce an error. A warning is issued if it is
+given for another statistic.}
 
 \item{rescale_p}{Logical; if \code{TRUE}, \code{p} is rescaled to
 \code{p / sum(p)}, so it can be given as any vector of positive weights. If

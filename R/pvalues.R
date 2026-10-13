@@ -141,7 +141,7 @@ resolve_stat_lambda <- function(stat, lambda = NULL) {
       stop('\'lambda\' must be given when stat = "pd" (e.g. lambda = 2/3).')
     }
     if (length(lambda) != 1L || !is.numeric(lambda) || !is.finite(lambda)) {
-      stop("'lambda' must be a single finite real number.")
+      stop("'lambda' must be a single finite real number strictly greater than -1.")
     }
     if (lambda <= -1) {
       stop("'lambda' must be strictly greater than -1.")
@@ -187,8 +187,10 @@ resolve_n_threads <- function(n_threads) {
 #'   \code{"pmf"} (probability mass function of the multinomial, i.e. the exact
 #'   multinomial test). See Details.
 #' @param lambda Parameter \eqn{\lambda} of the power-divergence statistic; used
-#'   only when \code{stat = "pd"}, and then required (there is no default);
-#'   a warning is issued if it is given for another statistic.
+#'   only when \code{stat = "pd"}, and then required (there is no default). Must
+#'   be a single finite real number strictly greater than -1 (\eqn{\lambda > -1});
+#'   values \eqn{\lambda \le -1} produce an error. A warning is issued if it is
+#'   given for another statistic.
 #' @param rescale_p Logical; if \code{TRUE}, \code{p} is rescaled to
 #'   \code{p / sum(p)}, so it can be given as any vector of positive weights. If
 #'   \code{FALSE} (default) and \code{p} does not sum to 1, an error is given.

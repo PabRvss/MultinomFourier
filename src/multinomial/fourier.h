@@ -16,8 +16,7 @@ typedef struct {
 
     local_t* restrict local;   // scratch: exp(i*m*theta) for one category, all STRIDE lanes
     result_t* restrict vec_arr;
-    // complex_t* restrict res_arr;
-    qcomplex_t* restrict res_arr;
+    mf_qcomplex_t* restrict res_arr;
     const void* restrict plan;
 
     // Phase recurrence, all indexed by cell k*(N+1)+i. See phase_load below.
@@ -127,8 +126,7 @@ static void* eval_fourier_thread(void* args_void) {
     const cell_t* restrict global = mult->matrix;
     local_t* restrict local = args->local;
     result_t* restrict vec_arr = args->vec_arr;
-    // complex_t* restrict res_arr = args->res_arr;
-    qcomplex_t* restrict res_arr = args->res_arr;
+    mf_qcomplex_t* restrict res_arr = args->res_arr;
 
     const int_t N = mult->N;
     const int_t K = mult->K;
@@ -177,8 +175,7 @@ static void* eval_fourier_thread(void* args_void) {
         }
 
         const real_t s2_re = M_PI*mult->gamma/mult->T;
-        // const double resN_exp = exp((double)vec_arr[N].log_mod + lgac[N]);
-        const quad_t resN_exp = expq(vec_arr[N].log_mod + lgac[N]);
+        const mf_quad_t resN_exp = expq(vec_arr[N].log_mod + lgac[N]);
 #ifdef USE_SIMD
         vec_t s2_im; for (int_t i=0; i<STRIDE; i++) s2_im[i] = (n*STRIDE + i)*M_PI;
 
@@ -267,7 +264,7 @@ static void* fourier_pool_worker_run(void* arg) {
 
 static fourier_pool_t* fourier_pool_create(
         const multinomial* restrict mult, options_t* restrict options, const void* restrict plan,
-        qcomplex_t* restrict res_arr, local_t* restrict local_arrs, result_t* restrict vec_arrs,
+        mf_qcomplex_t* restrict res_arr, local_t* restrict local_arrs, result_t* restrict vec_arrs,
         complex_t* restrict phase_arrs, const local_t* restrict lane, const complex_t* restrict step_z
 ) {
     const int_t N = mult->N;
@@ -381,9 +378,8 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
 
     local_t* local_arrs = malloc(threads*(N+1)*sizeof(local_t));
     result_t* vec_arrs = malloc(threads*(N+1)*sizeof(result_t));
-    // complex_t* res_arr = malloc(max_chunks*step*sizeof(complex_t));
-    qcomplex_t* res_arr = malloc(max_chunks*step*sizeof(qcomplex_t));
-    quad_t* sums_arr = malloc(max_chunks*step*sizeof(quad_t));
+    mf_qcomplex_t* res_arr = malloc(max_chunks*step*sizeof(mf_qcomplex_t));
+    mf_quad_t* sums_arr = malloc(max_chunks*step*sizeof(mf_quad_t));
 
     // Shared phase tables; each thread additionally carries one complex per cell.
     const int_t stride_n = threads > 1 ? threads : 1;
@@ -415,17 +411,17 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
                                                phase_arrs, lane, step_z);
 
     const int_t B = options->B > 0 ? options->B : CONV_COUNT;
-    const quad_t threshold = options->eps_rel / (quad_t)B;
-    quad_t delta_acc = 0;
+    const mf_quad_t threshold = options->eps_rel / (mf_quad_t)B;
+    mf_quad_t delta_acc = 0;
     int_t terms_acc = 0;
 
-    quad_t f = 0;
-    quad_t p = 0;
-    quad_t c = 0;
+    mf_quad_t f = 0;
+    mf_quad_t p = 0;
+    mf_quad_t c = 0;
 
     int converged_full = 0;
     int_t converged_count = 0;
-    quad_t p_prev = INFINITY;
+    mf_quad_t p_prev = INFINITY;
 
     // Convergence acceleration (see extrapolate.h). The partial sums are fed in scaled by a power
     // of two so the extrapolation runs in double regardless of how extreme p is.
@@ -493,7 +489,7 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
                 if (verbose) {
                     char p_buf[64];
                     quadmath_snprintf(p_buf, sizeof(p_buf), "%.10Qe", p);
-                    Rprintf("%04lld\t%s\n", iter, p_buf);
+                    Rprintf("%04lld\t%s\n", (long long)iter, p_buf);
                 }
                 p = 0;
                 converged_full = 1;
@@ -503,9 +499,9 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
         }
 
         for (iter=n_min*STRIDE; (iter<n_max*STRIDE) && (iter<options->max_iter); iter++) {
-            const quad_t delta_re = crealq(res_arr[iter]);
-            const quad_t y = delta_re - c;
-            const quad_t t = f + y;
+            const mf_quad_t delta_re = crealq(res_arr[iter]);
+            const mf_quad_t y = delta_re - c;
+            const mf_quad_t t = f + y;
             c = (t - f) - y;
             f = t;
             p = f;
@@ -576,19 +572,19 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
                     char p_buf[64];
                     quadmath_snprintf(p_buf, sizeof(p_buf), "%.10Qe", p);
                     if (iter == 0) {
-                        Rprintf("%04lld\t%s\n", iter, p_buf);
+                        Rprintf("%04lld\t%s\n", (long long)iter, p_buf);
                     }
                     else {
                         char delta_buf[64];
                         quadmath_snprintf(delta_buf, sizeof(delta_buf), "%.3Qe", delta_acc/terms_acc);
-                        Rprintf("%04lld\t%s\t%s%s\n", iter, p_buf, delta_acc>=0 ? " " : "", delta_buf);
+                        Rprintf("%04lld\t%s\t%s%s\n", (long long)iter, p_buf, delta_acc>=0 ? " " : "", delta_buf);
                     }
                     delta_acc = 0;
                     terms_acc = 0;
                 }
             }
 
-            const quad_t frac = fabsq(delta_re/p_prev);
+            const mf_quad_t frac = fabsq(delta_re/p_prev);
             const int converged = (p > 0.0) & (frac < threshold);
             converged_count = converged ? converged_count + 1 : 0;
             p_prev = p;
@@ -602,7 +598,7 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
                     char p_buf[64], delta_buf[64];
                     quadmath_snprintf(p_buf, sizeof(p_buf), "%.10Qe", p);
                     quadmath_snprintf(delta_buf, sizeof(delta_buf), "%.3Qe", delta_acc/terms_acc);
-                    Rprintf("*%04lld\t%s\t%s%s\n", iter, p_buf, delta_acc>=0 ? " " : "", delta_buf);
+                    Rprintf("*%04lld\t%s\t%s%s\n", (long long)iter, p_buf, delta_acc>=0 ? " " : "", delta_buf);
                 }
                 converged_full = 1;
                 goto finish;
@@ -620,10 +616,10 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
         // reporting from it would silently reintroduce the fragility just removed from the
         // stopping decision -- a stable stopping point paired with an unstable reported value
         // is not actually fixed.
-        p = scalbnq((quad_t)last_smooth, (int)eps_shift);
+        p = scalbnq((mf_quad_t)last_smooth, (int)eps_shift);
     }
     else if (eps_have && options->extrapolate && epsalg_ready(&eps)) {
-        p = scalbnq((quad_t)eps.result, (int)eps_shift);
+        p = scalbnq((mf_quad_t)eps.result, (int)eps_shift);
     }
 
     p += mult->p0/2;
@@ -655,7 +651,7 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
         mult_res->nu_at_max = n_at;
         if (verbose) {
             Rprintf("N_eff = %.4e, late max |nuhat(n)|/nuhat(0) = %.4e at n=%lld\n",
-                   mult_res->n_eff, mult_res->nu_max_ratio, mult_res->nu_at_max);
+                   mult_res->n_eff, mult_res->nu_max_ratio, (long long)mult_res->nu_at_max);
             Rprintf("estimated relative truncation error = %.4e\n", mult_res->err_rel_est);
             if (options->extrapolate >= 1) Rprintf("estimated relative extrapolation error = %.4e\n", mult_res->err_rel_ext);
         }

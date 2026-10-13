@@ -14,8 +14,8 @@
 
 #if defined(__GNUC__) && !defined(__clang__) && defined(ENABLE_QUADMATH)
     #include <quadmath.h>
-    typedef __float128 quad_t;
-    typedef __complex128 qcomplex_t;
+    typedef __float128 mf_quad_t;
+    typedef __complex128 mf_qcomplex_t;
     #define QUAD_AVAILABLE 1
     #define exp_quad expq
     #define fabsq_quad fabsq
@@ -26,8 +26,8 @@
     /* On Apple Silicon / macOS / Clang or when ENABLE_QUADMATH is not set:
        long double on ARM64 is identical to double (64-bit).
        We do not pretend quad precision exists; we fall back cleanly to double. */
-    typedef double quad_t;
-    typedef double complex qcomplex_t;
+    typedef double mf_quad_t;
+    typedef double complex mf_qcomplex_t;
     #define QUAD_AVAILABLE 0
     #define exp_quad exp
     #define fabsq_quad fabs

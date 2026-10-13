@@ -47,7 +47,7 @@ fit$status   # 0: the stopping rule was met
 
 pval_exact(x, p, stat = "llr")$pval   # 0.00684
 
-# Power divergence: lambda is required
+# Power divergence: lambda is required (must be strictly greater than -1)
 pval_fourier(x, p, stat = "pd", lambda = 2/3)$pval
 ```
 

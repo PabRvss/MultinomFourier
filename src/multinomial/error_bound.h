@@ -50,7 +50,7 @@
 
 typedef struct {
     complex_t* restrict nu;   // nuhat(n)/nuhat(0) for n = 0 .. n_last; nu[0] == 1 when nu0_valid
-    qcomplex_t nu0;           // nuhat(0) = M(gamma), kept at full quad precision. p and nuhat(0)
+    mf_qcomplex_t nu0;        // nuhat(0) = M(gamma), kept at full quad precision. p and nuhat(0)
                               // are always comparable in scale (both carry the same tilt), but
                               // that shared scale can itself be far below what double can hold --
                               // every nuhat(n) underflows to exact 0 once narrowed to double, not
@@ -86,12 +86,12 @@ static void err_diag_free(err_diag_t* restrict d) {
 // halves res_arr[0]. The very first chunk always includes n=0 (fourier.h's chunking starts every
 // call at frequency 0), so nu0 is available before any n>0 entry is normalized against it.
 static void err_diag_accum(
-        err_diag_t* restrict d, const qcomplex_t* restrict res_arr,
+        err_diag_t* restrict d, const mf_qcomplex_t* restrict res_arr,
         const int_t n_lo, const int_t n_hi, const real_t gamma, const real_t T
 ) {
     for (int_t n=n_lo; n<n_hi && n<d->cap; n++) {
         const complex_t s = series_sinc(n, gamma, T);
-        const qcomplex_t nu_n = cabs(s) > 0 ? res_arr[n]/s : 0.0;
+        const mf_qcomplex_t nu_n = cabs(s) > 0 ? res_arr[n]/s : 0.0;
         if (n == 0) {
             d->nu0 = nu_n;
             d->nu0_valid = cabsq(nu_n) > 0;
@@ -169,7 +169,7 @@ static double err_tail_c2(const int_t N, const real_t gamma, const real_t T) {
 // each alone is not. p is taken in quad precision (the same precision series() accumulates it in)
 // and the ratio is formed there too, so a p as extreme as nuhat(0) never gets narrowed to double
 // on its own first -- only the caller's final, ordinary-sized quotient is.
-static double err_rel_estimate(const err_diag_t* restrict d, const quad_t p, const real_t gamma, const real_t T) {
+static double err_rel_estimate(const err_diag_t* restrict d, const mf_quad_t p, const real_t gamma, const real_t T) {
     if (d->n_last < 3 || !(fabsq(p) > 0) || !d->nu0_valid) return NAN;
     const double rms_ratio = err_rms_tail_ratio(d);
     if (!(rms_ratio >= 0)) return NAN;

@@ -524,9 +524,12 @@ by a real parameter $\lambda$:
 \qquad \lambda \neq 0, -1,
 \]
 
-with the values at $\lambda = 0$ and $\lambda = -1$ defined as limits. The
-family contains Pearson's statistic ($\lambda = 1$) and the log-likelihood
-ratio ($\lambda \to 0$). We use $\lambda = 2/3$, which lies between the two.
+with the values at $\lambda = 0$ and $\lambda = -1$ defined as limits.
+In this package, the power-divergence statistic requires $\lambda > -1$
+(values $\lambda \le -1$ produce an error). The family contains Pearson's
+statistic ($\lambda = 1$) and the log-likelihood ratio ($\lambda \to 0$,
+available directly as `stat = "llr"`). We use $\lambda = 2/3$, which lies
+between the two.
 
 ```{r compare-tests}
 test_specs <- list(
