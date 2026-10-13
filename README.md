@@ -24,7 +24,7 @@ The package has three functions:
 
 ```r
 # install.packages("remotes")
-remotes::install_github("PabRvss/MultFourier-v2", ref = "speedup", build_vignettes = TRUE)
+remotes::install_github("PabRvss/MultinomFourier", build_vignettes = TRUE)
 ```
 
 The package contains C code, so it needs the standard tools for building R
@@ -51,7 +51,7 @@ pval_exact(x, p, stat = "llr")$pval   # 0.00684
 pval_fourier(x, p, stat = "pd", lambda = 2/3)$pval
 ```
 
-All three functions return an object of class `"multfourier"`, a list with the
+All three functions return an object of class `"multinomfourier"`, a list with the
 p-value, the status, the running time and, for the Fourier method, the details
 of the series (see `?pval_fourier`).
 

@@ -47,7 +47,7 @@ static void validate_known_keys(SEXP opts) {
             }
         }
         if (!found) {
-            Rf_warning("multfourier: unknown option ignored: '%s' (check the name)", key);
+            Rf_warning("MultinomFourier: unknown option ignored: '%s' (check the name)", key);
         }
     }
 }
@@ -178,7 +178,7 @@ SEXP c_run_multfourier(SEXP r_x, SEXP r_p, SEXP r_opts) {
     /* Lambda parameter for power divergence statistics */
     options.lambda = get_opt_double(r_opts, "lambda", 0.0);
     if (!isnan(options.lambda) && options.lambda <= -1.0) {
-        Rf_error("multfourier: 'lambda' must be strictly greater than -1.");
+        Rf_error("MultinomFourier: 'lambda' must be strictly greater than -1.");
     }
 
     /* Undersampling aliasing factor (> 0) */

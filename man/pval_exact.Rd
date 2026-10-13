@@ -59,7 +59,7 @@ category, so a run can exceed it by a wide margin; if it is reached,
 warning.}
 }
 \value{
-An object of class \code{"multfourier"}: a list with components
+An object of class \code{"multinomfourier"}: a list with components
 \describe{
   \item{x, p}{The input counts and null probabilities (\code{p} after
     rescaling, if \code{rescale_p = TRUE}).}

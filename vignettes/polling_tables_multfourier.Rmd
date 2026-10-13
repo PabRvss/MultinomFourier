@@ -287,7 +287,7 @@ fit_278 <- pval_fourier(
 fit_278
 ```
 
-The returned `multfourier` object is a list; its main fields are:
+The returned `multinomfourier` object is a list; its main fields are:
 
 * `fit_278$pval`: computed $p$-value
   ($\approx$ `r fmt_p(fit_278$pval)`).

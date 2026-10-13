@@ -7,6 +7,7 @@ p <- c(0.2, 0.3, 0.5)
 # 1. Caso base (fourier default: llr)
 fit <- pval_fourier(x, p)
 print(fit)
+stopifnot(inherits(fit, "multinomfourier"))
 
 # 2. Distintos estadísticos
 fit_chi2 <- pval_fourier(x, p, stat = "chi2")

@@ -26,7 +26,7 @@
 #'   \item \code{\link{pval_flexible}}: chooses between the two according to the
 #'     size of the support.
 #' }
-#' All three return an object of class \code{"multfourier"}; check its
+#' All three return an object of class \code{"multinomfourier"}; check its
 #' \code{status} component before using the \pvalue{} of \code{pval_fourier}.
 #'
 #' @references
@@ -34,7 +34,7 @@
 #' tests. Manuscript.
 #'
 #' @seealso
-#' Report bugs at \url{https://github.com/PabRvss/MultFourier-v2/issues}.
+#' Report bugs at \url{https://github.com/PabRvss/MultinomFourier/issues}.
 #'
 #' @name MultinomFourier-package
 #' @aliases MultinomFourier

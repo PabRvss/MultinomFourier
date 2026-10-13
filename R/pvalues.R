@@ -1,4 +1,4 @@
-# Helper interno para construir el objeto S3 multfourier
+# Helper interno para construir el objeto S3 multinomfourier
 build_multfourier_s3 <- function(raw, x, p, elapsed, requested_method, stat_label) {
   method_name <- if (requested_method == "flexible") {
     if (!is.null(raw$method) && raw$method == 1L) "fourier" else "exact"
@@ -57,9 +57,10 @@ build_multfourier_s3 <- function(raw, x, p, elapsed, requested_method, stat_labe
     nu_max_ratio = diag_val(raw$nu_max_ratio)
   )
 
-  class(out) <- "multfourier"
+  class(out) <- "multinomfourier"
   out
 }
+build_multinomfourier_s3 <- build_multfourier_s3
 
 # Diagnosticos de la serie de Fourier: NA para el metodo exacto o si faltan
 diag_val <- function(v) if (is.null(v)) NA_real_ else as.numeric(v)
@@ -86,7 +87,7 @@ drop_removed_args <- function(dots) {
 }
 
 #' @export
-`$.multfourier` <- function(x, name) {
+`$.multinomfourier` <- function(x, name) {
   if (name %in% names(multfourier_old_names)) {
     new <- multfourier_old_names[[name]]
     warning(sprintf("'%s' is deprecated; use '%s' instead.", name, new), call. = FALSE)
@@ -94,6 +95,9 @@ drop_removed_args <- function(dots) {
   }
   .subset2(x, name)
 }
+
+#' @export
+`$.multfourier` <- `$.multinomfourier`
 
 # Helper interno para validar x y p (y reescalar p si rescale_p = TRUE, como
 # chisq.test(): mismo valor por defecto y misma tolerancia)
@@ -262,7 +266,7 @@ resolve_n_threads <- function(n_threads) {
 #' faster on large instances. With \code{exact_terms = TRUE}, terms are evaluated
 #' via exact polynomial convolution.
 #'
-#' @return An object of class \code{"multfourier"}: a list with components
+#' @return An object of class \code{"multinomfourier"}: a list with components
 #' \describe{
 #'   \item{x, p}{The input counts and null probabilities (\code{p} after
 #'     rescaling, if \code{rescale_p = TRUE}).}
@@ -447,7 +451,7 @@ pval_fourier <- function(x,
 #' with \eqn{N \ge 500}{N >= 500} did not finish within an hour. For large instances use
 #' \code{\link{pval_fourier}}.
 #'
-#' @return An object of class \code{"multfourier"}: a list with components
+#' @return An object of class \code{"multinomfourier"}: a list with components
 #' \describe{
 #'   \item{x, p}{The input counts and null probabilities (\code{p} after
 #'     rescaling, if \code{rescale_p = TRUE}).}
@@ -560,7 +564,7 @@ pval_exhaustive <- function(...) {
 #' (\code{status != 0}), the result is returned as is; there is no automatic
 #' fallback to the exact method.
 #'
-#' @return An object of class \code{"multfourier"}, as described in
+#' @return An object of class \code{"multinomfourier"}, as described in
 #' \code{\link{pval_fourier}}; its \code{method} component (\code{"exact"} or
 #' \code{"fourier"}) shows which method was used.
 #'
@@ -640,13 +644,13 @@ pval_flexible <- function(x,
   build_multfourier_s3(raw, x, p, elapsed, "flexible", st$label)
 }
 
-#' Print method for multfourier objects
+#' Print method for multinomfourier objects
 #'
 #' Prints the method, statistic, \pvalue{}, status and total runtime and, for the
 #' Fourier method, also the tilt \code{gamma}, the time spent choosing it, the
 #' period half-width \code{W} and the number of terms.
 #'
-#' @param x Object of class \code{"multfourier"} returned by
+#' @param x Object of class \code{"multinomfourier"} returned by
 #'   \code{\link{pval_fourier}}, \code{\link{pval_exact}} or
 #'   \code{\link{pval_flexible}}.
 #' @param ... Additional arguments (currently unused).
@@ -667,7 +671,7 @@ pval_flexible <- function(x,
 #' fit_exact <- pval_exact(x, p, stat = "llr")
 #' fit_exact
 #' @export
-print.multfourier <- function(x, ...) {
+print.multinomfourier <- function(x, ...) {
   cat("Multinomial Test (MultinomFourier)\n")
   cat("----------------------------------\n")
   cat(sprintf("%-11s: %s\n", "Method", x$method))
@@ -688,4 +692,9 @@ print.multfourier <- function(x, ...) {
   }
   cat(sprintf("%-11s: %s seconds\n", "Time", sprintf("%.6f", x$time)))
   invisible(x)
+}
+
+#' @export
+print.multfourier <- function(x, ...) {
+  print.multinomfourier(x, ...)
 }

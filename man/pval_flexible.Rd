@@ -93,7 +93,7 @@ extrapolation; 1: report the extrapolated value; 2: also stop on it, the
 default). Unknown names produce a warning.}
 }
 \value{
-An object of class \code{"multfourier"}, as described in
+An object of class \code{"multinomfourier"}, as described in
 \code{\link{pval_fourier}}; its \code{method} component (\code{"exact"} or
 \code{"fourier"}) shows which method was used.
 }
