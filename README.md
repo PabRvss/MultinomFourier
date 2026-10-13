@@ -1,6 +1,6 @@
-# MultFourier
+# MultinomFourier
 
-`MultFourier` is an R package that computes p-values of multinomial
+`MultinomFourier` is an R package that computes p-values of multinomial
 goodness-of-fit tests,
 
 $$
@@ -34,8 +34,10 @@ a C compiler on Linux.
 ## Example
 
 ```r
-library(MultFourier)
+library(MultinomFourier)
 
+# Note: Reported p-values in comments are illustrative and may vary slightly
+# across versions or due to changes in numerical criteria.
 p <- c(0.1, 0.2, 0.3, 0.4)   # null probabilities
 x <- c(35, 30, 60, 75)       # observed counts, N = 200
 
@@ -68,8 +70,8 @@ of the series (see `?pval_fourier`).
 
 ## Documentation
 
-- Reference manual: `MultFourier.pdf` in this repository, or `help(package = "MultFourier")`.
-- Worked example with election data: `vignette("polling_tables_multfourier", package = "MultFourier")`.
+- Reference manual: `MultinomFourier.pdf` in this repository, or `help(package = "MultinomFourier")`.
+- Worked example with election data: `vignette("polling_tables_multfourier", package = "MultinomFourier")`.
 
 ## Reference
 

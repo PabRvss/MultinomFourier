@@ -1,4 +1,4 @@
-library(MultFourier)
+library(MultinomFourier)
 
 # Datos de prueba
 x <- c(10, 20, 30)
@@ -101,3 +101,4 @@ fit_vignette_276 <- pval_fourier(votes[, "276"], loo_p[, "276"], stat = "llr")
 stopifnot(fit_vignette_276$status == 0L)
 stopifnot(fit_vignette_276$pval > 0.5)
 cat("Tests de la vignette pasaron exitosamente.\n")
+

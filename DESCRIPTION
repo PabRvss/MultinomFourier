@@ -1,13 +1,13 @@
-Package: MultFourier
+Package: MultinomFourier
 Type: Package
 Title: p-Values of Multinomial Goodness-of-Fit Tests by Fourier Series Inversion
 Version: 1.0
-Author: Charles Thraves, Pablo Rivas, Felipe Subiabre
-Maintainer: Pablo Rivas <pablo.rivas.g@ug.uchile.cl>
 Authors@R: 
     c(person("Charles", "Thraves", role = "aut"),
       person("Pablo", "Rivas", role = c("aut", "cre"), email = "pablo.rivas.g@ug.uchile.cl"),
       person("Felipe", "Subiabre", role = "aut"))
+Author: Charles Thraves [aut], Pablo Rivas [aut, cre], Felipe Subiabre [aut]
+Maintainer: Pablo Rivas <pablo.rivas.g@ug.uchile.cl>
 Description: 
     Computes p-values of multinomial goodness-of-fit tests based on an
     additive statistic: the log-likelihood ratio, Pearson's chi-squared, the
@@ -20,6 +20,8 @@ Description:
     chooses between the two according to the size of the instance.
 License: GPL (>= 2)
 Encoding: UTF-8
+Imports:
+    parallel
 Suggests: 
     knitr,
     rmarkdown,

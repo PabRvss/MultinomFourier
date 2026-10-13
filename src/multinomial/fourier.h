@@ -212,83 +212,8 @@ static void* (*select_fourier_eval_fn(const options_t* restrict options))(void*)
     return eval_fourier_thread;
 }
 
-// Thread i takes n = n_min+i, n_min+i+threads, ... : a fixed stride, so that its phase recurrence
-// has a constant advance factor and survives the chunk boundary (see phase_load).
-static void eval_fourier_parallel(
-        const multinomial* restrict mult, const int_t n_min, const int_t n_max,
-        local_t* restrict local_arrs, result_t* restrict vec_arrs,
-        // complex_t* res_arr,
-        qcomplex_t* res_arr,
-        options_t* options, const void* restrict plan,
-        complex_t* restrict phase_arrs, const local_t* restrict lane,
-        const complex_t* restrict step_z, const int_t warm
-) {
-    const int_t threads = options->threads;
-    const int_t N = mult->N;
-    const int_t cells = mult->K*(N+1);
-    pthread_t* tid = (pthread_t*)malloc(threads*sizeof(pthread_t));
-    arguments_t* args_array = malloc(threads*sizeof(arguments_t));
-
-    void* (*eval_fn)(void*) = select_fourier_eval_fn(options);
-
-    for (int_t i=0; i<threads; i++) {
-        arguments_t* args_i = &args_array[i];
-        args_i->mult = mult;
-        args_i->local = &local_arrs[i*(N+1)];
-        args_i->vec_arr = &vec_arrs[i*(N+1)];
-        args_i->res_arr = res_arr;
-        args_i->plan = plan;
-
-        args_i->phase = &phase_arrs[i*cells];
-        args_i->lane = lane;
-        args_i->step_z = step_z;
-
-        args_i->thread = i;
-        args_i->start = n_min + i;
-        args_i->end = n_max;
-        args_i->stride_n = threads;
-        args_i->warm = warm;
-
-        pthread_create(&tid[i], NULL, eval_fn, args_i);
-    }
-    for (size_t i=0; i<threads; i++) pthread_join(tid[i], NULL);
-
-    free(tid);
-    free(args_array);
-}
-
-static void eval_fourier_sequential(
-        const multinomial* restrict mult, const int_t n_min, const int_t n_max,
-        local_t* restrict local_arrs, result_t* restrict vec_arrs,
-        // complex_t* res_arr,
-        qcomplex_t* res_arr,
-        options_t* options, const void* restrict plan,
-        complex_t* restrict phase_arrs, const local_t* restrict lane,
-        const complex_t* restrict step_z, const int_t warm
-) {
-    arguments_t args;
-    arguments_t* args_i = &args;
-    args_i->mult = mult;
-    args_i->local = local_arrs;
-    args_i->vec_arr = vec_arrs;
-    args_i->res_arr = res_arr;
-    args_i->plan = plan;
-
-    args_i->phase = phase_arrs;
-    args_i->lane = lane;
-    args_i->step_z = step_z;
-
-    args_i->thread = 0;
-    args_i->start = n_min;
-    args_i->end = n_max;
-    args_i->stride_n = 1;
-    args_i->warm = warm;
-
-    select_fourier_eval_fn(options)(args_i);
-}
-
 // A persistent thread pool for series(), which calls the evaluator once per chunk (typically
-// hundreds to tens of thousands of times per run). eval_fourier_parallel above creates and joins
+// hundreds to tens of thousands of times per run). Creates and joins pthreads across the evaluation.
 // `threads` pthreads on every call, which is wasted work repeated once per chunk; on this machine
 // creating and joining 8 threads costs on the order of 10 microseconds, comparable to or larger
 // than a whole chunk's worth of series evaluation once the Poissonised evaluator or a small
@@ -451,7 +376,7 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
     if (options->verbose) {
         char p0_buf[64];
         quadmath_snprintf(p0_buf, sizeof(p0_buf), "%.10Qe", mult->p0);
-        printf("p0 =\t%s\n", p0_buf);
+        Rprintf("p0 =\t%s\n", p0_buf);
     }
 
     local_t* local_arrs = malloc(threads*(N+1)*sizeof(local_t));
@@ -537,7 +462,7 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
     err_diag_t diag;
     err_diag_init(&diag, max_chunks*step);
 
-    if (verbose) printf("terms\tcumulative sum\t\tmean change\n");
+    if (verbose) Rprintf("terms\tcumulative sum\t\tmean change\n");
     int_t iter = 0;
     for (int_t n=0; n < max_chunks; n++) {
         if (options->max_time > 0.0 && isfinite(options->max_time)) {
@@ -568,7 +493,7 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
                 if (verbose) {
                     char p_buf[64];
                     quadmath_snprintf(p_buf, sizeof(p_buf), "%.10Qe", p);
-                    printf("%04lld\t%s\n", iter, p_buf);
+                    Rprintf("%04lld\t%s\n", iter, p_buf);
                 }
                 p = 0;
                 converged_full = 1;
@@ -651,12 +576,12 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
                     char p_buf[64];
                     quadmath_snprintf(p_buf, sizeof(p_buf), "%.10Qe", p);
                     if (iter == 0) {
-                        printf("%04lld\t%s\n", iter, p_buf);
+                        Rprintf("%04lld\t%s\n", iter, p_buf);
                     }
                     else {
                         char delta_buf[64];
                         quadmath_snprintf(delta_buf, sizeof(delta_buf), "%.3Qe", delta_acc/terms_acc);
-                        printf("%04lld\t%s\t%s%s\n", iter, p_buf, delta_acc>=0 ? " " : "", delta_buf);
+                        Rprintf("%04lld\t%s\t%s%s\n", iter, p_buf, delta_acc>=0 ? " " : "", delta_buf);
                     }
                     delta_acc = 0;
                     terms_acc = 0;
@@ -677,7 +602,7 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
                     char p_buf[64], delta_buf[64];
                     quadmath_snprintf(p_buf, sizeof(p_buf), "%.10Qe", p);
                     quadmath_snprintf(delta_buf, sizeof(delta_buf), "%.3Qe", delta_acc/terms_acc);
-                    printf("*%04lld\t%s\t%s%s\n", iter, p_buf, delta_acc>=0 ? " " : "", delta_buf);
+                    Rprintf("*%04lld\t%s\t%s%s\n", iter, p_buf, delta_acc>=0 ? " " : "", delta_buf);
                 }
                 converged_full = 1;
                 goto finish;
@@ -704,8 +629,8 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
     p += mult->p0/2;
     if (verbose) {
         char p_buf[64]; quadmath_snprintf(p_buf, sizeof(p_buf), "%.10Qe", p);
-        printf("p = %s\n", p_buf);
-        printf("converged: %s\n", converged_full ? "true" : "false");
+        Rprintf("p = %s\n", p_buf);
+        Rprintf("converged: %s\n", converged_full ? "true" : "false");
     }
 
     mult_res->pval = p;
@@ -729,10 +654,10 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
         mult_res->nu_max_ratio = err_max_revival(&diag, &n_at);
         mult_res->nu_at_max = n_at;
         if (verbose) {
-            printf("N_eff = %.4e, late max |nuhat(n)|/nuhat(0) = %.4e at n=%lld\n",
+            Rprintf("N_eff = %.4e, late max |nuhat(n)|/nuhat(0) = %.4e at n=%lld\n",
                    mult_res->n_eff, mult_res->nu_max_ratio, mult_res->nu_at_max);
-            printf("estimated relative truncation error = %.4e\n", mult_res->err_rel_est);
-            if (options->extrapolate >= 1) printf("estimated relative extrapolation error = %.4e\n", mult_res->err_rel_ext);
+            Rprintf("estimated relative truncation error = %.4e\n", mult_res->err_rel_est);
+            if (options->extrapolate >= 1) Rprintf("estimated relative extrapolation error = %.4e\n", mult_res->err_rel_ext);
         }
     }
     err_diag_free(&diag);

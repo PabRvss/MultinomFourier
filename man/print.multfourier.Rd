@@ -22,6 +22,8 @@ Fourier method, also the tilt \code{gamma}, the time spent choosing it, the
 period half-width \code{W} and the number of terms.
 }
 \examples{
+# Note: Reported p-values in comments are illustrative and may vary slightly
+# across versions or due to changes in numerical criteria.
 p <- c(0.1, 0.2, 0.3, 0.4)
 x <- c(35, 30, 60, 75)
 

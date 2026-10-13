@@ -1,8 +1,8 @@
 # ==============================================================================
-# BENCHMARK COMPARATIVO: MultFourier vs. ExactMultinom
+# BENCHMARK COMPARATIVO: MultinomFourier vs. ExactMultinom
 # ==============================================================================
 # Este script compara el rendimiento computacional y la precisión estadística
-# entre la librería 'MultFourier' (métodos pval_fourier y pval_exact) y la
+# entre la librería 'MultinomFourier' (métodos pval_fourier y pval_exact) y la
 # librería de CRAN 'ExactMultinom' (multinom.test de Johannes Resin, 2023).
 #
 # Aspectos evaluados:
@@ -19,19 +19,19 @@
 # 1. Carga de Librerías
 # ------------------------------------------------------------------------------
 suppressPackageStartupMessages({
-  if (!requireNamespace("MultFourier", quietly = TRUE)) {
-    stop("La librería 'MultFourier' no está instalada.")
+  if (!requireNamespace("MultinomFourier", quietly = TRUE)) {
+    stop("La librería 'MultinomFourier' no está instalada.")
   }
   if (!requireNamespace("ExactMultinom", quietly = TRUE)) {
     message("Instalando 'ExactMultinom' desde CRAN...")
     install.packages("ExactMultinom", repos = "https://cloud.r-project.org")
   }
-  library(MultFourier)
+  library(MultinomFourier)
   library(ExactMultinom)
 })
 
 cat("==============================================================================\n")
-cat("          BENCHMARK COMPARATIVO: MultFourier vs. ExactMultinom               \n")
+cat("          BENCHMARK COMPARATIVO: MultinomFourier vs. ExactMultinom               \n")
 cat("==============================================================================\n")
 cat(sprintf("R Version: %s\n", R.version.string))
 cat("Librerías cargadas exitosamente.\n\n")
@@ -48,7 +48,7 @@ benchmark_case <- function(name, x, p, stat = "llr", timelimit = 25, theta = 1e-
   cat(sprintf("\n>>> [%s] | K = %d, N = %d | Soporte = %s (log10 = %.2f)\n",
               name, K, N, format(supp_size, big.mark = ","), log10_supp))
   
-  # A. MultFourier::pval_fourier
+  # A. MultinomFourier::pval_fourier
   t0 <- proc.time()
   fit_fo <- tryCatch(
     pval_fourier(x, p, stat = stat),
@@ -56,7 +56,7 @@ benchmark_case <- function(name, x, p, stat = "llr", timelimit = 25, theta = 1e-
   )
   t_fo <- (proc.time() - t0)["elapsed"]
   
-  # B. MultFourier::pval_exact
+  # B. MultinomFourier::pval_exact
   t0 <- proc.time()
   fit_ex <- tryCatch(
     pval_exact(x, p, stat = stat, max_time = timelimit),
@@ -87,8 +87,8 @@ benchmark_case <- function(name, x, p, stat = "llr", timelimit = 25, theta = 1e-
   ex_p_str <- if (is.na(fit_ex$pval)) "TIMEOUT/NA" else format(fit_ex$pval, scientific = TRUE, digits = 5)
   em_p_str <- if (is.na(em_pval)) "TIMEOUT/NA" else if (em_pval <= theta) sprintf("< theta (%s)", format(theta)) else format(em_pval, scientific = TRUE, digits = 5)
   
-  cat(sprintf("    MultFourier (fourier) : p = %-16s | Tiempo = %7.4f s\n", fo_p_str, t_fo))
-  cat(sprintf("    MultFourier (exact)   : p = %-16s | Tiempo = %7.4f s\n", ex_p_str, t_ex))
+  cat(sprintf("    MultinomFourier (fourier) : p = %-16s | Tiempo = %7.4f s\n", fo_p_str, t_fo))
+  cat(sprintf("    MultinomFourier (exact)   : p = %-16s | Tiempo = %7.4f s\n", ex_p_str, t_ex))
   cat(sprintf("    ExactMultinom (exact) : p = %-16s | Tiempo = %7.4f s\n", em_p_str, t_em))
   
   speedup_vs_em <- if (!is.na(t_em) && t_fo > 0) t_em / t_fo else NA
@@ -246,7 +246,7 @@ cat("\n>>> [4.3 Screening Total: 15 Mesas Electorales]\n")
 t0 <- proc.time()
 p_fo_all <- sapply(colnames(votes), function(m) pval_fourier(votes[, m], loo_p[, m])$pval)
 t_fo_all <- (proc.time() - t0)["elapsed"]
-cat(sprintf("    MultFourier (15 mesas completas): Tiempo Total = %.3f s (%.4f s / mesa)\n",
+cat(sprintf("    MultinomFourier (15 mesas completas): Tiempo Total = %.3f s (%.4f s / mesa)\n",
             t_fo_all, t_fo_all / 15))
 
 # ------------------------------------------------------------------------------
@@ -282,7 +282,7 @@ if (requireNamespace("ggplot2", quietly = TRUE)) {
   plot_df <- data.frame(
     Case = rep(df_results$Case, 3),
     log10_Supp = rep(df_results$log10_Supp, 3),
-    Method = rep(c("MultFourier (Fourier)", "MultFourier (Exact)", "ExactMultinom (Exact)"),
+    Method = rep(c("MultinomFourier (Fourier)", "MultinomFourier (Exact)", "ExactMultinom (Exact)"),
                  each = nrow(df_results)),
     Time = c(df_results$Time_Fourier, df_results$Time_Exact_MF, df_results$Time_Exact_EM)
   )
@@ -293,12 +293,12 @@ if (requireNamespace("ggplot2", quietly = TRUE)) {
     ggplot2::geom_point(size = 3) +
     ggplot2::scale_y_log10(breaks = c(0.001, 0.01, 0.1, 1, 10, 60),
                            labels = c("1 ms", "10 ms", "0.1 s", "1 s", "10 s", "1 min")) +
-    ggplot2::scale_color_manual(values = c("MultFourier (Fourier)" = "#1f77b4",
-                                           "MultFourier (Exact)"   = "#2ca02c",
+    ggplot2::scale_color_manual(values = c("MultinomFourier (Fourier)" = "#1f77b4",
+                                           "MultinomFourier (Exact)"   = "#2ca02c",
                                            "ExactMultinom (Exact)" = "#d62728")) +
     ggplot2::labs(
       title = "Tiempo de Cómputo vs. Tamaño del Soporte Multinomial",
-      subtitle = "Comparación entre MultFourier (Fourier y Exact) y ExactMultinom",
+      subtitle = "Comparación entre MultinomFourier (Fourier y Exact) y ExactMultinom",
       x = expression(log[10]("Tamaño del Soporte")),
       y = "Tiempo de Ejecución (segundos, escala log)",
       color = "Método",
@@ -319,7 +319,7 @@ if (requireNamespace("ggplot2", quietly = TRUE)) {
           cbind(df_results$Time_Fourier, df_results$Time_Exact_MF, df_results$Time_Exact_EM),
           type = "b", pch = 16:18, col = c("blue", "green", "red"), log = "y",
           xlab = "log10(Soporte)", ylab = "Tiempo (s, log)",
-          main = "Benchmark: MultFourier vs ExactMultinom")
+          main = "Benchmark: MultinomFourier vs ExactMultinom")
   legend("topleft", legend = c("Fourier", "Exact MF", "ExactMultinom"),
          col = c("blue", "green", "red"), pch = 16:18)
 }
@@ -327,15 +327,15 @@ if (requireNamespace("ggplot2", quietly = TRUE)) {
 cat("\n==============================================================================\n")
 cat("                      CONCLUSIONES PRINCIPALES DEL BENCHMARK                  \n")
 cat("==============================================================================\n")
-cat("1. PRECISIÓN: En soportes pequeños y moderados, MultFourier::pval_exact y\n")
+cat("1. PRECISIÓN: En soportes pequeños y moderados, MultinomFourier::pval_exact y\n")
 cat("   ExactMultinom coinciden exactamente hasta el último decimal.\n")
 cat("2. ESCALABILIDAD: Cuando el soporte supera 10^9 combinaciones (K >= 7-8 o N >= 100),\n")
 cat("   los métodos exactos escalan exponencialmente (tardando segundos a minutos),\n")
-cat("   mientras que MultFourier::pval_fourier mantiene tiempos de 0.02 - 0.05 segundos\n")
+cat("   mientras que MultinomFourier::pval_fourier mantiene tiempos de 0.02 - 0.05 segundos\n")
 cat("   (más de 100x a 400x de aceleración).\n")
 cat("3. COLAS PROFUNDAS: ExactMultinom está limitado por su parámetro 'theta' (1e-4 a 1e-8);\n")
 cat("   no puede calcular p-valores extremadamente pequeños como el de la Mesa 278\n")
-cat("   (p ~ 10^-33), donde solo reporta que es menor que theta. MultFourier lo calcula\n")
+cat("   (p ~ 10^-33), donde solo reporta que es menor que theta. MultinomFourier lo calcula\n")
 cat("   con exactitud sin restricciones de cola.\n")
 cat("4. SCREENING MASIVO: Las 15 mesas electorales de la Escuela Centenario se procesan\n")
 cat(sprintf("   en %.2f segundos con pval_fourier, haciendo viable el análisis interactivo.\n", t_fo_all))

@@ -1,7 +1,7 @@
-#' MultFourier: p-values of multinomial goodness-of-fit tests
+#' MultinomFourier: p-values of multinomial goodness-of-fit tests
 #'
 #' @details
-#' \code{MultFourier} computes the \pvalue{} \eqn{P\{T(Y) \ge T(x)\}}{P{T(Y) >= T(x)}} of a
+#' \code{MultinomFourier} computes the \pvalue{} \eqn{P\{T(Y) \ge T(x)\}}{P{T(Y) >= T(x)}} of a
 #' multinomial goodness-of-fit test, where \eqn{x} is the observation (the vector
 #' of observed counts in the \eqn{K} categories, with \eqn{N = \sum_k x_k}{N = sum_k x_k}
 #' trials), \eqn{Y \sim \mathrm{Multinomial}(N, p)}{Y ~ Multinomial(N, p)} under the null hypothesis
@@ -36,8 +36,8 @@
 #' @seealso
 #' Report bugs at \url{https://github.com/PabRvss/MultFourier-v2/issues}.
 #'
-#' @name MultFourier-package
-#' @aliases MultFourier
+#' @name MultinomFourier-package
+#' @aliases MultinomFourier
 #' @keywords package
-#' @useDynLib MultFourier, c_run_multfourier
+#' @useDynLib MultinomFourier, c_run_multfourier
 "_PACKAGE"

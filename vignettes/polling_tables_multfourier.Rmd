@@ -1,9 +1,9 @@
 ---
-title: "Detecting Unusual Polling-Station Results with MultFourier"
+title: "Detecting Unusual Polling-Station Results with MultinomFourier"
 author: "Charles Thraves, Pablo Rivas, Felipe Subiabre"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Detecting Unusual Polling-Station Results with MultFourier}
+  %\VignetteIndexEntry{Detecting Unusual Polling-Station Results with MultinomFourier}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -35,7 +35,7 @@ fmt_p <- function(x) {
 
 # Motivation
 
-This vignette illustrates how `MultFourier` can be used to identify unusual
+This vignette illustrates how `MultinomFourier` can be used to identify unusual
 outcomes in a collection of multinomial observations. The application analyzes
 results from polling stations belonging to the same polling location in the 2024
 Chilean municipal election. Each polling location (*local de votación*) hosts
@@ -61,7 +61,7 @@ The vote matrix below records votes for four mayoral candidates, null or blank
 votes, and abstention. Columns correspond to individual polling stations.
 
 ```{r data}
-library(MultFourier)
+library(MultinomFourier)
 
 votes <- matrix(
   c(
@@ -265,7 +265,7 @@ knitr::kable(
 
 ## Fourier inversion: `pval_fourier()`
 
-The main method of `MultFourier` is `pval_fourier()`. It writes the exact
+The main method of `MultinomFourier` is `pval_fourier()`. It writes the exact
 $p$-value as a Fourier series and sums it until a stopping rule is met. The
 partial sums are accelerated by extrapolation, and the summation stops as soon
 as either `B` consecutive terms are each smaller than `rel_eps / B` relative to
@@ -471,7 +471,7 @@ that of any other station (the next smallest is station
 
 # Comparing Multinomial Test Statistics
 
-`MultFourier` supports several classic statistics. All of them test the same
+`MultinomFourier` supports several classic statistics. All of them test the same
 hypotheses $H_0$ and $H_1$ stated above for station 278; they differ in how
 they order the possible outcomes from least to most extreme, and therefore in
 which outcomes count as "at least as extreme" as the observed one.

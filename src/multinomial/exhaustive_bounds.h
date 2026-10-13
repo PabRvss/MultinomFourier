@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <stdatomic.h>
 
 // Pruning variant of the exhaustive enumeration method (compare with exhaustive_bisection.h).
@@ -644,7 +644,7 @@ static void exhaustive_bounds(multinomial* mult, multinomial_result* mult_res, o
         mult_res->converged = 0;
     } else {
         p_acc = p_acc*EXP(-MAX_EXP);
-        if (options->verbose) printf("exhaustive (bounds) = %.8e\n", p_acc);
+        if (options->verbose) Rprintf("exhaustive (bounds) = %.8e\n", p_acc);
         mult_res->pval = p_acc;
         mult_res->converged = 1;
         mult_res->terms = -1;

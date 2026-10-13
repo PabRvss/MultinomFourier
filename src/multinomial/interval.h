@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // Fast replacement for fill_interval's O(K*N^2) dynamic program (multinomial.h). Computes the
 // exact range [s_min, s_max] of S(x) - S(x0) = sum_k [g_k(x_k) - g_k(x0_k)] over integer
@@ -172,7 +172,7 @@ static void fill_interval_fast(multinomial* mult, const options_t* options) {
     mult->T = W_eff == 0? 1.0 : M_PI/W_eff;
 
     if (options->verbose) {
-        printf("\tS in %.3f + [%.3f, %.3f]  (fast interval)\n", mult->r0, s_min, s_max);
-        printf("\tW = %.3f, T = %f\n", W_eff, mult->T);
+        Rprintf("\tS in %.3f + [%.3f, %.3f]  (fast interval)\n", mult->r0, s_min, s_max);
+        Rprintf("\tW = %.3f, T = %f\n", W_eff, mult->T);
     }
 }

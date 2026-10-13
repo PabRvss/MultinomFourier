@@ -104,6 +104,8 @@ with \eqn{N \ge 500}{N >= 500} did not finish within an hour. For large instance
 \code{\link{pval_fourier}}.
 }
 \examples{
+# Note: Reported p-values in comments are illustrative and may vary slightly
+# across versions or due to changes in numerical criteria.
 p <- c(0.1, 0.2, 0.3, 0.4)
 x <- c(35, 30, 60, 75)   # N = 200
 

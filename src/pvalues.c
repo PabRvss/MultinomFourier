@@ -47,7 +47,7 @@ static void validate_known_keys(SEXP opts) {
             }
         }
         if (!found) {
-            Rf_warning("multfourier: opcion desconocida ignorada: '%s' (revisa el nombre)", key);
+            Rf_warning("multfourier: unknown option ignored: '%s' (check the name)", key);
         }
     }
 }

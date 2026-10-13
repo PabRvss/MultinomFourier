@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 typedef struct {
     real_t log_prob;
@@ -463,10 +463,10 @@ static void fill_gamma(multinomial* mult, multinomial_result* mult_res, const op
     mult_res->eval_time = dt;
 
     if (options->verbose) {
-        printf("\tgamma = %.6f, %s = %.6f, PI*gamma/T = %.6e\n", mult->gamma,
+        Rprintf("\tgamma = %.6f, %s = %.6f, PI*gamma/T = %.6e\n", mult->gamma,
                options->gamma_newton ? "saddlepoint obj" : "log MGF(-gamma)",
                final_eval, M_PI*mult->gamma/mult->T);
-        printf("\t%lld evaluations in %f seconds\n", (long long)eval_count, dt);
+        Rprintf("\t%lld evaluations in %f seconds\n", (long long)eval_count, dt);
     }
 }
 

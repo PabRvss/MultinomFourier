@@ -49,8 +49,9 @@ Same argument and default as \code{rescale.p} in
 \code{\link[stats]{chisq.test}}.}
 
 \item{enum_cutoff}{Threshold on \eqn{\log_{10}}{log10} of the support size
-\eqn{{N+K-1 \choose K-1}}{choose(N+K-1, K-1)} (the number of possible count vectors). Below it the
-exact method is used, at or above it the Fourier method. Default 10. See
+\eqn{{N+K-1 \choose K-1}}{choose(N+K-1, K-1)} (the number of possible count vectors). Below it
+(\eqn{< \mathrm{enum\_cutoff}}{< enum_cutoff}) the exact method is used; at or above it
+(\eqn{\ge \mathrm{enum\_cutoff}}{>= enum_cutoff}) the Fourier method is used. Default 10. See
 Details.}
 
 \item{undersampling}{Positive factor dividing the half-width \eqn{W} of the
@@ -97,8 +98,9 @@ An object of class \code{"multfourier"}, as described in
 \code{"fourier"}) shows which method was used.
 }
 \description{
-Computes the \pvalue{} with \code{\link{pval_exact}} when the instance is small
-and with \code{\link{pval_fourier}} otherwise.
+Computes the \pvalue{} with \code{\link{pval_exact}} when \eqn{\log_{10}}{log10} of the
+support size is strictly less than \code{enum_cutoff}, and with \code{\link{pval_fourier}}
+when it is greater than or equal to \code{enum_cutoff}.
 }
 \details{
 The cost of \code{\link{pval_exact}} depends strongly on the observed counts,
@@ -116,6 +118,8 @@ When the Fourier method is chosen and does not meet its stopping rule
 fallback to the exact method.
 }
 \examples{
+# Note: Reported p-values in comments are illustrative and may vary slightly
+# across versions or due to changes in numerical criteria.
 # Small instance (K = 4, N = 200, about 10^6 outcomes): exact method
 p <- c(0.1, 0.2, 0.3, 0.4)
 x <- c(35, 30, 60, 75)

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <stdatomic.h>
 
 #ifndef BISECT_MAX_DEPTH
@@ -437,7 +437,7 @@ static void exhaustive_bisection(multinomial* mult, multinomial_result* mult_res
         mult_res->converged = 0;
     } else {
         p_acc = p_acc*EXP(-MAX_EXP);
-        if (options->verbose) printf("exhaustive = %.8e\n", p_acc);
+        if (options->verbose) Rprintf("exhaustive = %.8e\n", p_acc);
         mult_res->pval = p_acc;
         mult_res->converged = 1;
         mult_res->status = 0;

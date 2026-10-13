@@ -192,44 +192,4 @@ static double err_rel_estimate(const err_diag_t* restrict d, const quad_t p, con
 //
 //     width = INTEGRAL (P - Q) dnu
 //           = ( Phi(0) + INTEGRAL_0^1 Phi(a(t)) dt ) / (N+1),      a(t) = max(-W, log(t)/gamma),
-//
-// where Phi(c) := INTEGRAL F_N(s-c) dnu(s) = sum_n (1 - |n|/(N+1)) exp(i*n*T*c) nuhat(n).
-//
-// Phi is computable from the stored coefficients, is real (nuhat(-n) = conj(nuhat(n))), and is
-// >= 0 for every c since F_N >= 0 and nu >= 0 -- another free self-check on the computation.
-// The width is the exact amount by which N moments fail to determine p: if it exceeds p, the
-// certificate cannot even establish the sign, no matter how accurate the series itself is.
 
-static double selberg_phi(const err_diag_t* restrict d, const double c, const real_t T) {
-    const int_t N = d->n_last;
-    if (N < 1 || !d->nu0_valid) return NAN;
-    const double Np1 = (double)(N + 1);
-    double acc = 1.0;                                 // n = 0 term (nuhat(0)/nuhat(0)), weight 1
-    for (int_t n=1; n<=N; n++) {
-        const double w = 1.0 - (double)n/Np1;
-        const complex_t term = cexp(I*(double)n*(double)T*c)*d->nu[n];
-        acc += 2.0*w*creal(term);                    // n and -n, using nuhat(-n) = conj(nuhat(n))
-    }
-    // d->nu holds ratios to nuhat(0); rescale back to absolute units (nuhat(0) is real, see the
-    // "nu >= 0" remark at the top of this file, so its real part is the whole thing).
-    return acc*(double)crealq(d->nu0);
-}
-
-// Width of the certified enclosure. quad_pts controls the layer-cake quadrature in t.
-static double selberg_width(const err_diag_t* restrict d, const real_t gamma, const real_t T, const int_t quad_pts) {
-    const int_t N = d->n_last;
-    if (N < 1) return NAN;
-    const double W = M_PI/(double)T;
-
-    // INTEGRAL_0^1 Phi(a(t)) dt by the midpoint rule; a(t) = max(-W, log(t)/gamma).
-    double integral = 0;
-    for (int_t k=0; k<quad_pts; k++) {
-        const double t = ((double)k + 0.5)/(double)quad_pts;
-        double a = log(t)/(double)gamma;
-        if (a < -W) a = -W;
-        integral += selberg_phi(d, a, T);
-    }
-    integral /= (double)quad_pts;
-
-    return (selberg_phi(d, 0.0, T) + integral)/(double)(N + 1);
-}

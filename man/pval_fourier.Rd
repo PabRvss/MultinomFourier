@@ -128,15 +128,22 @@ An object of class \code{"multfourier"}: a list with components
     extract the multinomial coefficient in each term of the series (a
     \eqn{Q}{Q}-point trapezoid rule for Cauchy's integral). It is chosen
     automatically, by doubling from a power of two until the aliasing
-    certificate \code{D_Q} falls below \eqn{10^{-10}}{1e-10}. \code{NA} with
+    diagnostic \code{D_Q} falls below \eqn{10^{-10}}{1e-10}. \code{NA} with
     \code{exact_terms = TRUE}.}
-  \item{D_Q}{Aliasing certificate \eqn{D(Q)}{D(Q)}: the relative change in
-    the first term of the series when \code{Q} is doubled, which bounds from
-    below, and typically estimates closely, the relative aliasing error of
-    every term. It measures an error separate from the truncation of the
-    series, which \code{err_rel_ext} and \code{err_rel_est} report. It is
-    \code{0} when \code{Q} is large enough for the rule to be exact, and
-    \code{NA} with \code{exact_terms = TRUE}.}
+  \item{D_Q}{Aliasing diagnostic \eqn{D(Q)}{D(Q)}. \eqn{D(Q)}{D(Q)} is a
+    computable lower bound on \eqn{\alpha(Q)}{alpha(Q)}, which provides a
+    uniform upper bound on the aliasing error of each Fourier-series term.
+    For the probability-mass statistic (\code{"pmf"}), \eqn{D(Q)}{D(Q)}
+    approximates \eqn{\alpha(Q)}{alpha(Q)} to first order. For the
+    log-likelihood-ratio statistic (\code{"llr"}), \eqn{D(Q)}{D(Q)} remains
+    a lower bound on \eqn{\alpha(Q)}{alpha(Q)}, but no guarantee of closeness
+    is available. Stopping the doubling of \eqn{Q} when \eqn{D(Q)}{D(Q)} falls
+    below a threshold does not by itself guarantee that the aliasing error is
+    strictly below that threshold. \code{D_Q} measures an error separate from
+    the truncation of the series (reported by \code{err_rel_ext} and
+    \code{err_rel_est}). It is \code{0} when \code{Q} is large enough for the
+    Cauchy formula to be exact (no aliasing possible), and \code{NA} with
+    \code{exact_terms = TRUE}.}
 }
 The last six components are diagnostics of the series. The four about
 truncation (\code{err_rel_ext}, \code{err_rel_est}, \code{n_eff} and
@@ -194,6 +201,8 @@ faster on large instances. With \code{exact_terms = TRUE}, terms are evaluated
 via exact polynomial convolution.
 }
 \examples{
+# Note: Reported p-values and term counts in comments are illustrative and
+# may vary slightly across versions or due to changes in numerical criteria.
 p <- c(0.1, 0.2, 0.3, 0.4)
 x <- c(35, 30, 60, 75)   # N = 200
 

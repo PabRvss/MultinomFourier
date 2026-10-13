@@ -150,6 +150,7 @@ resolve_stat_lambda <- function(stat, lambda = NULL) {
 
 # Helper interno para acotar n_threads a los nucleos disponibles
 resolve_n_threads <- function(n_threads) {
+  if (missing(n_threads) || is.null(n_threads) || is.na(n_threads)) n_threads <- 1L
   max_cores <- parallel::detectCores()
   if (is.na(max_cores) || max_cores < 1L) max_cores <- 1L
   n_threads <- as.integer(n_threads)
@@ -301,15 +302,22 @@ resolve_n_threads <- function(n_threads) {
 #'     extract the multinomial coefficient in each term of the series (a
 #'     \eqn{Q}{Q}-point trapezoid rule for Cauchy's integral). It is chosen
 #'     automatically, by doubling from a power of two until the aliasing
-#'     certificate \code{D_Q} falls below \eqn{10^{-10}}{1e-10}. \code{NA} with
+#'     diagnostic \code{D_Q} falls below \eqn{10^{-10}}{1e-10}. \code{NA} with
 #'     \code{exact_terms = TRUE}.}
-#'   \item{D_Q}{Aliasing certificate \eqn{D(Q)}{D(Q)}: the relative change in
-#'     the first term of the series when \code{Q} is doubled, which bounds from
-#'     below, and typically estimates closely, the relative aliasing error of
-#'     every term. It measures an error separate from the truncation of the
-#'     series, which \code{err_rel_ext} and \code{err_rel_est} report. It is
-#'     \code{0} when \code{Q} is large enough for the rule to be exact, and
-#'     \code{NA} with \code{exact_terms = TRUE}.}
+#'   \item{D_Q}{Aliasing diagnostic \eqn{D(Q)}{D(Q)}. \eqn{D(Q)}{D(Q)} is a
+#'     computable lower bound on \eqn{\alpha(Q)}{alpha(Q)}, which provides a
+#'     uniform upper bound on the aliasing error of each Fourier-series term.
+#'     For the probability-mass statistic (\code{"pmf"}), \eqn{D(Q)}{D(Q)}
+#'     approximates \eqn{\alpha(Q)}{alpha(Q)} to first order. For the
+#'     log-likelihood-ratio statistic (\code{"llr"}), \eqn{D(Q)}{D(Q)} remains
+#'     a lower bound on \eqn{\alpha(Q)}{alpha(Q)}, but no guarantee of closeness
+#'     is available. Stopping the doubling of \eqn{Q} when \eqn{D(Q)}{D(Q)} falls
+#'     below a threshold does not by itself guarantee that the aliasing error is
+#'     strictly below that threshold. \code{D_Q} measures an error separate from
+#'     the truncation of the series (reported by \code{err_rel_ext} and
+#'     \code{err_rel_est}). It is \code{0} when \code{Q} is large enough for the
+#'     Cauchy formula to be exact (no aliasing possible), and \code{NA} with
+#'     \code{exact_terms = TRUE}.}
 #' }
 #' The last six components are diagnostics of the series. The four about
 #' truncation (\code{err_rel_ext}, \code{err_rel_est}, \code{n_eff} and
@@ -327,6 +335,8 @@ resolve_n_threads <- function(n_threads) {
 #'   \code{\link{pval_flexible}} to choose between the two automatically.
 #'
 #' @examples
+#' # Note: Reported p-values and term counts in comments are illustrative and
+#' # may vary slightly across versions or due to changes in numerical criteria.
 #' p <- c(0.1, 0.2, 0.3, 0.4)
 #' x <- c(35, 30, 60, 75)   # N = 200
 #'
@@ -460,6 +470,8 @@ pval_fourier <- function(x,
 #' @seealso \code{\link{pval_fourier}}, \code{\link{pval_flexible}}.
 #'
 #' @examples
+#' # Note: Reported p-values in comments are illustrative and may vary slightly
+#' # across versions or due to changes in numerical criteria.
 #' p <- c(0.1, 0.2, 0.3, 0.4)
 #' x <- c(35, 30, 60, 75)   # N = 200
 #'
@@ -519,13 +531,15 @@ pval_exhaustive <- function(...) {
 
 #' Multinomial test p-value, choosing the method automatically
 #'
-#' Computes the \pvalue{} with \code{\link{pval_exact}} when the instance is small
-#' and with \code{\link{pval_fourier}} otherwise.
+#' Computes the \pvalue{} with \code{\link{pval_exact}} when \eqn{\log_{10}}{log10} of the
+#' support size is strictly less than \code{enum_cutoff}, and with \code{\link{pval_fourier}}
+#' when it is greater than or equal to \code{enum_cutoff}.
 #'
 #' @inheritParams pval_fourier
 #' @param enum_cutoff Threshold on \eqn{\log_{10}}{log10} of the support size
-#'   \eqn{{N+K-1 \choose K-1}}{choose(N+K-1, K-1)} (the number of possible count vectors). Below it the
-#'   exact method is used, at or above it the Fourier method. Default 10. See
+#'   \eqn{{N+K-1 \choose K-1}}{choose(N+K-1, K-1)} (the number of possible count vectors). Below it
+#'   (\eqn{< \mathrm{enum\_cutoff}}{< enum_cutoff}) the exact method is used; at or above it
+#'   (\eqn{\ge \mathrm{enum\_cutoff}}{>= enum_cutoff}) the Fourier method is used. Default 10. See
 #'   Details.
 #' @param n_threads Number of threads, passed to whichever method is chosen.
 #'   Default \code{min(2L, parallel::detectCores())}.
@@ -553,6 +567,8 @@ pval_exhaustive <- function(...) {
 #' @seealso \code{\link{pval_fourier}}, \code{\link{pval_exact}}.
 #'
 #' @examples
+#' # Note: Reported p-values in comments are illustrative and may vary slightly
+#' # across versions or due to changes in numerical criteria.
 #' # Small instance (K = 4, N = 200, about 10^6 outcomes): exact method
 #' p <- c(0.1, 0.2, 0.3, 0.4)
 #' x <- c(35, 30, 60, 75)
@@ -638,6 +654,8 @@ pval_flexible <- function(x,
 #' @return Invisibly returns \code{x}.
 #'
 #' @examples
+#' # Note: Reported p-values in comments are illustrative and may vary slightly
+#' # across versions or due to changes in numerical criteria.
 #' p <- c(0.1, 0.2, 0.3, 0.4)
 #' x <- c(35, 30, 60, 75)
 #'
@@ -650,8 +668,8 @@ pval_flexible <- function(x,
 #' fit_exact
 #' @export
 print.multfourier <- function(x, ...) {
-  cat("Multinomial Test (MultFourier)\n")
-  cat("------------------------------\n")
+  cat("Multinomial Test (MultinomFourier)\n")
+  cat("----------------------------------\n")
   cat(sprintf("%-11s: %s\n", "Method", x$method))
   cat(sprintf("%-11s: %s\n", "Statistic", x$stat))
   cat(sprintf("%-11s: %s\n", "p-value", format(x$pval, digits = 8)))

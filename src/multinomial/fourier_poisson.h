@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #ifndef GAMMA_NU_BOUND
 #define GAMMA_NU_BOUND 100.0
@@ -266,9 +266,9 @@ static poisson_plan_t* build_poisson_plan(const multinomial* restrict mult, cons
     }
 
     if (verbose) {
-        printf("\tpoisson plan: nu = %.6f, sd(total) = %.1f, Q = %lld, m=0 aliasing = %.1e\n",
+        Rprintf("\tpoisson plan: nu = %.6f, sd(total) = %.1f, Q = %lld, m=0 aliasing = %.1e\n",
                (double)nu, sqrt((double)plan->var), (long long)Q, alias);
-        if (!certified) printf("\tpoisson plan: WARNING, Q capped at %lld before aliasing was certified\n", (long long)Q);
+        if (!certified) Rprintf("\tpoisson plan: WARNING, Q capped at %lld before aliasing was certified\n", (long long)Q);
     }
     return plan;
 }
