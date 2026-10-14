@@ -17,3 +17,5 @@
 ^\.RData$
 ^\.git$
 ^\.Rd2pdf.*$
+(^|/)\.DS_Store$
+^cran-comments\.md$
