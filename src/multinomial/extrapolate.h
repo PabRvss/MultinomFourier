@@ -31,7 +31,7 @@
 //      the table entry with the smallest error estimate rather than the deepest column. That
 //      safeguarding is the whole difference between a 100x gain and an occasional 300% blunder.
 //
-// The partial sums are quad_t but are fed in here scaled by a power of two to O(1) and handled in
+// The partial sums are mf_quad_t but are fed in here scaled by a power of two to O(1) and handled in
 // double: extrapolation is a relative-accuracy operation, and the enormous exponents that motivated
 // quad precision in the first place carry no information for it.
 //

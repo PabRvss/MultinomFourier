@@ -12,12 +12,12 @@ static const R_CallMethodDef CallEntries[] = {
     {NULL, NULL, 0}
 };
 
-void R_init_MultFourier(DllInfo *dll) {
+void R_init_MultinomFourier(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, 0);
     R_forceSymbols(dll, 1);
 }
 
-void R_unload_MultFourier(DllInfo *dll) {
+void R_unload_MultinomFourier(DllInfo *dll) {
     free_ext();
 }

@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <math.h>
+#define R_NO_REMAP
+#include <R.h>
 #include "base.h"
 
 real_t* lgac = NULL;
@@ -7,14 +9,15 @@ static size_t lgac_capacity = 0;
 
 void init_ext(int_t fact_max, int_t verbose_ext) {
     if (lgac != NULL && (size_t)fact_max < lgac_capacity) {
-        return; // Mantiene la memoria si la capacidad es suficiente
+        return; /* Mantiene la memoria si la capacidad es suficiente */
     }
     if (lgac != NULL) {
-        free(lgac);
+        R_Free(lgac);
+        lgac = NULL;
     }
     lgac_capacity = fact_max + 1000;
-    lgac = (real_t*)malloc(lgac_capacity * sizeof(real_t));
-    if (lgac == NULL) return;
+    lgac = R_Calloc(lgac_capacity, real_t);
+    /* R_Calloc lanza error automaticamente si falla: no es necesario chequear NULL */
 
     lgac[0] = 0;
     double s = 0.0;
@@ -31,7 +34,7 @@ void init_ext(int_t fact_max, int_t verbose_ext) {
 
 void free_ext(void) {
     if (lgac != NULL) {
-        free(lgac);
+        R_Free(lgac);
         lgac = NULL;
         lgac_capacity = 0;
     }

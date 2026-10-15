@@ -50,7 +50,7 @@
 
 typedef struct {
     complex_t* restrict nu;   // nuhat(n)/nuhat(0) for n = 0 .. n_last; nu[0] == 1 when nu0_valid
-    qcomplex_t nu0;           // nuhat(0) = M(gamma), kept at full quad precision. p and nuhat(0)
+    mf_qcomplex_t nu0;        // nuhat(0) = M(gamma), kept at full quad precision. p and nuhat(0)
                               // are always comparable in scale (both carry the same tilt), but
                               // that shared scale can itself be far below what double can hold --
                               // every nuhat(n) underflows to exact 0 once narrowed to double, not
@@ -86,12 +86,12 @@ static void err_diag_free(err_diag_t* restrict d) {
 // halves res_arr[0]. The very first chunk always includes n=0 (fourier.h's chunking starts every
 // call at frequency 0), so nu0 is available before any n>0 entry is normalized against it.
 static void err_diag_accum(
-        err_diag_t* restrict d, const qcomplex_t* restrict res_arr,
+        err_diag_t* restrict d, const mf_qcomplex_t* restrict res_arr,
         const int_t n_lo, const int_t n_hi, const real_t gamma, const real_t T
 ) {
     for (int_t n=n_lo; n<n_hi && n<d->cap; n++) {
         const complex_t s = series_sinc(n, gamma, T);
-        const qcomplex_t nu_n = cabs(s) > 0 ? res_arr[n]/s : 0.0;
+        const mf_qcomplex_t nu_n = cabs(s) > 0 ? res_arr[n]/s : 0.0;
         if (n == 0) {
             d->nu0 = nu_n;
             d->nu0_valid = cabsq(nu_n) > 0;
@@ -169,7 +169,7 @@ static double err_tail_c2(const int_t N, const real_t gamma, const real_t T) {
 // each alone is not. p is taken in quad precision (the same precision series() accumulates it in)
 // and the ratio is formed there too, so a p as extreme as nuhat(0) never gets narrowed to double
 // on its own first -- only the caller's final, ordinary-sized quotient is.
-static double err_rel_estimate(const err_diag_t* restrict d, const quad_t p, const real_t gamma, const real_t T) {
+static double err_rel_estimate(const err_diag_t* restrict d, const mf_quad_t p, const real_t gamma, const real_t T) {
     if (d->n_last < 3 || !(fabsq(p) > 0) || !d->nu0_valid) return NAN;
     const double rms_ratio = err_rms_tail_ratio(d);
     if (!(rms_ratio >= 0)) return NAN;
@@ -192,44 +192,4 @@ static double err_rel_estimate(const err_diag_t* restrict d, const quad_t p, con
 //
 //     width = INTEGRAL (P - Q) dnu
 //           = ( Phi(0) + INTEGRAL_0^1 Phi(a(t)) dt ) / (N+1),      a(t) = max(-W, log(t)/gamma),
-//
-// where Phi(c) := INTEGRAL F_N(s-c) dnu(s) = sum_n (1 - |n|/(N+1)) exp(i*n*T*c) nuhat(n).
-//
-// Phi is computable from the stored coefficients, is real (nuhat(-n) = conj(nuhat(n))), and is
-// >= 0 for every c since F_N >= 0 and nu >= 0 -- another free self-check on the computation.
-// The width is the exact amount by which N moments fail to determine p: if it exceeds p, the
-// certificate cannot even establish the sign, no matter how accurate the series itself is.
 
-static double selberg_phi(const err_diag_t* restrict d, const double c, const real_t T) {
-    const int_t N = d->n_last;
-    if (N < 1 || !d->nu0_valid) return NAN;
-    const double Np1 = (double)(N + 1);
-    double acc = 1.0;                                 // n = 0 term (nuhat(0)/nuhat(0)), weight 1
-    for (int_t n=1; n<=N; n++) {
-        const double w = 1.0 - (double)n/Np1;
-        const complex_t term = cexp(I*(double)n*(double)T*c)*d->nu[n];
-        acc += 2.0*w*creal(term);                    // n and -n, using nuhat(-n) = conj(nuhat(n))
-    }
-    // d->nu holds ratios to nuhat(0); rescale back to absolute units (nuhat(0) is real, see the
-    // "nu >= 0" remark at the top of this file, so its real part is the whole thing).
-    return acc*(double)crealq(d->nu0);
-}
-
-// Width of the certified enclosure. quad_pts controls the layer-cake quadrature in t.
-static double selberg_width(const err_diag_t* restrict d, const real_t gamma, const real_t T, const int_t quad_pts) {
-    const int_t N = d->n_last;
-    if (N < 1) return NAN;
-    const double W = M_PI/(double)T;
-
-    // INTEGRAL_0^1 Phi(a(t)) dt by the midpoint rule; a(t) = max(-W, log(t)/gamma).
-    double integral = 0;
-    for (int_t k=0; k<quad_pts; k++) {
-        const double t = ((double)k + 0.5)/(double)quad_pts;
-        double a = log(t)/(double)gamma;
-        if (a < -W) a = -W;
-        integral += selberg_phi(d, a, T);
-    }
-    integral /= (double)quad_pts;
-
-    return (selberg_phi(d, 0.0, T) + integral)/(double)(N + 1);
-}

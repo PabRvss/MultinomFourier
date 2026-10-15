@@ -76,7 +76,7 @@ typedef struct {
     double* restrict root_im;
     double* restrict out_re;    // Q: exp(+2 pi i q N/Q)/Q, the coefficient extractor
     double* restrict out_im;
-    quad_t resN_exp;            // exp(lgac[N] + sum_k scale_k - nu*N)
+    mf_quad_t resN_exp;            // exp(lgac[N] + sum_k scale_k - nu*N)
 } poisson_plan_t;
 
 // The saddlepoint radius. After fill_cells log_prob already carries the gamma tilt, so gamma_moments
@@ -201,7 +201,7 @@ static poisson_plan_t* build_poisson_plan(const multinomial* restrict mult, cons
 
         for (int_t i=0; i<=N; i++) plan->weight[index_k+i] = EXP(global[index_k+i].log_prob + nu*(real_t)i - scale);
     }
-    plan->resN_exp = expq((quad_t)lgac[N] + (quad_t)sum_scale - (quad_t)nu*(quad_t)N);
+    plan->resN_exp = expq((mf_quad_t)lgac[N] + (mf_quad_t)sum_scale - (mf_quad_t)nu*(mf_quad_t)N);
 
     // Q. The product has degree K*N, so an alias N + l*Q needs l >= 1 with Q <= (K-1)*N, or l <= -1
     // with Q <= N: once Q exceeds both, no total count can alias onto N and doubling stops being useful.
@@ -266,9 +266,9 @@ static poisson_plan_t* build_poisson_plan(const multinomial* restrict mult, cons
     }
 
     if (verbose) {
-        printf("\tpoisson plan: nu = %.6f, sd(total) = %.1f, Q = %lld, m=0 aliasing = %.1e\n",
+        Rprintf("\tpoisson plan: nu = %.6f, sd(total) = %.1f, Q = %lld, m=0 aliasing = %.1e\n",
                (double)nu, sqrt((double)plan->var), (long long)Q, alias);
-        if (!certified) printf("\tpoisson plan: WARNING, Q capped at %lld before aliasing was certified\n", (long long)Q);
+        if (!certified) Rprintf("\tpoisson plan: WARNING, Q capped at %lld before aliasing was certified\n", (long long)Q);
     }
     return plan;
 }
@@ -322,7 +322,7 @@ static void* eval_fourier_poisson_thread(void* args_void) {
 
     const multinomial* restrict mult = args->mult;
     const poisson_plan_t* restrict plan = args->plan;
-    qcomplex_t* restrict res_arr = args->res_arr;
+    mf_qcomplex_t* restrict res_arr = args->res_arr;
 
     const int_t N = mult->N;
     const int_t K = mult->K;
