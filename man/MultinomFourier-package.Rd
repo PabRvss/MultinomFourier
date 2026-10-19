@@ -6,7 +6,7 @@
 \alias{MultinomFourier}
 \title{MultinomFourier: p-values of multinomial goodness-of-fit tests}
 \description{
-Computes p-values of multinomial goodness-of-fit tests based on an additive statistic: the log-likelihood ratio, Pearson's chi-squared, the Cressie-Read power divergence, and the exact multinomial test. The main function, pval_fourier(), writes the p-value as a Fourier series in the moment-generating function of the statistic and sums it until an adaptive stopping rule is met, which makes small p-values of large instances computable. The function pval_exact() computes the exact p-value by branch pruning with bounds from a dynamic program, and pval_flexible() chooses between the two according to the size of the instance.
+Computes p-values of multinomial goodness-of-fit tests based on an additive statistic: the log-likelihood ratio, Pearson's chi-squared, the Cressie-Read power divergence, and the exact multinomial test. The main function, pval_fourier(), writes the p-value as a Fourier series in the moment-generating function of the statistic and sums it until an adaptive stopping rule is met, which makes small p-values of large instances computationally feasible. The function pval_exact() computes the exact p-value by branch pruning with bounds from a dynamic program, and pval_flexible() chooses between the two according to the size of the instance.
 }
 \details{
 \code{MultinomFourier} computes the \pvalue{} \eqn{P\{T(Y) \ge T(x)\}}{P{T(Y) >= T(x)}} of a
