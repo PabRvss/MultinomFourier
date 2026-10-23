@@ -22,6 +22,7 @@ typedef struct {
 
 typedef struct {
     double pval;
+    double log_pval;
     int_t converged;
     int_t terms;
     double p0;

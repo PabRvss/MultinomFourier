@@ -52,8 +52,10 @@ pval_fourier(x, p, stat = "pd", lambda = 2/3)$pval
 ```
 
 All three functions return an object of class `"multinomfourier"`, a list with the
-p-value, the status, the running time and, for the Fourier method, the details
+p-value (`pval`), its natural logarithm (`log_pval`), the status, the running time and, for the Fourier method, the details
 of the series (see `?pval_fourier`).
+
+When the p-value is smaller than approximately $5 \times 10^{-324}$ (the limit of standard 64-bit double precision), `pval` is reported as `NA` to clarify that the probability is not zero, and `log_pval` preserves the exact numerical magnitude without underflow.
 
 ## Things to keep in mind
 

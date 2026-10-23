@@ -18,6 +18,7 @@
     typedef __complex128 mf_qcomplex_t;
     #define QUAD_AVAILABLE 1
     #define exp_quad expq
+    #define log_quad logq
     #define fabsq_quad fabsq
     #define crealq_quad crealq
     #define finiteq_quad finiteq
@@ -30,6 +31,7 @@
     typedef double complex mf_qcomplex_t;
     #define QUAD_AVAILABLE 0
     #define exp_quad exp
+    #define log_quad log
     #define fabsq_quad fabs
     #define crealq_quad creal
     #define finiteq_quad isfinite
@@ -38,6 +40,9 @@
     /* Fallback macros for raw quadmath identifiers */
     #ifndef expq
     #define expq exp
+    #endif
+    #ifndef logq
+    #define logq log
     #endif
     #ifndef fabsq
     #define fabsq fabs

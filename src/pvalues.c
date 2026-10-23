@@ -90,10 +90,14 @@ static const char* get_opt_str(SEXP list, const char* name, const char* def_val)
 }
 
 static SEXP pack_result(const multinomial_result* mult_res) {
-    SEXP res   = PROTECT(Rf_allocVector(VECSXP, 15));
-    SEXP names = PROTECT(Rf_allocVector(STRSXP, 15));
+    SEXP res   = PROTECT(Rf_allocVector(VECSXP, 16));
+    SEXP names = PROTECT(Rf_allocVector(STRSXP, 16));
 
-    SET_VECTOR_ELT(res, 0, Rf_ScalarReal(mult_res->pval));
+    if (isnan(mult_res->pval) || mult_res->pval < 5e-324) {
+        SET_VECTOR_ELT(res, 0, Rf_ScalarReal(NA_REAL));
+    } else {
+        SET_VECTOR_ELT(res, 0, Rf_ScalarReal(mult_res->pval));
+    }
     SET_STRING_ELT(names, 0, Rf_mkChar("pval"));
 
     SET_VECTOR_ELT(res, 1, Rf_ScalarInteger((int)mult_res->converged));
@@ -145,6 +149,13 @@ static SEXP pack_result(const multinomial_result* mult_res) {
         SET_VECTOR_ELT(res, 14, Rf_ScalarReal((double)mult_res->DQ_relative));
     }
     SET_STRING_ELT(names, 14, Rf_mkChar("D_Q"));
+
+    if (isnan(mult_res->log_pval)) {
+        SET_VECTOR_ELT(res, 15, Rf_ScalarReal(NA_REAL));
+    } else {
+        SET_VECTOR_ELT(res, 15, Rf_ScalarReal(mult_res->log_pval));
+    }
+    SET_STRING_ELT(names, 15, Rf_mkChar("log_pval"));
 
     Rf_setAttrib(res, R_NamesSymbol, names);
     UNPROTECT(2);
@@ -219,6 +230,7 @@ SEXP c_run_multfourier(SEXP r_x, SEXP r_p, SEXP r_opts) {
     multinomial_result mult_res;
     memset(&mult_res, 0, sizeof(multinomial_result));
     mult_res.pval = NA_REAL;
+    mult_res.log_pval = NA_REAL;
     mult_res.gamma = NA_REAL;
     mult_res.W = NA_REAL;
     mult_res.eval_time = NA_REAL;

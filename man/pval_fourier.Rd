@@ -94,7 +94,13 @@ An object of class \code{"multinomfourier"}: a list with components
 \describe{
   \item{x, p}{The input counts and null probabilities (\code{p} after
     rescaling, if \code{rescale_p = TRUE}).}
-  \item{pval}{The computed \pvalue{}.}
+  \item{pval}{The computed \pvalue{}, or \code{NA} if underflow occurs (when the
+    p-value is smaller than \eqn{5 \times 10^{-324}}, below the 64-bit double
+    precision limit) or if the algorithm did not converge.}
+  \item{log_pval}{Natural logarithm of the \pvalue{}. When the \pvalue{} is smaller
+    than \eqn{5 \times 10^{-324}}, \code{pval} is reported as \code{NA} to indicate
+    that it cannot be stored in 64-bit floating-point format without collapsing to
+    zero, but \code{log_pval} preserves the exact magnitude without underflow.}
   \item{stat}{Name of the test statistic, e.g. \code{"Log-Likelihood Ratio"}
     or \code{"power-divergence (lambda = 0.6667)"}.}
   \item{method}{\code{"fourier"}.}
@@ -201,6 +207,14 @@ smoothed extrapolated value.
 evaluated via a Poissonized Cauchy-integral evaluator, which is significantly
 faster on large instances. With \code{exact_terms = TRUE}, terms are evaluated
 via exact polynomial convolution.
+
+\strong{Underflow below double precision.} In standard IEEE 754 64-bit floating-point
+arithmetic, positive numbers smaller than approximately \eqn{5 \times 10^{-324}}
+underflow to exact zero. Because multinomial \pvalue{}s are mathematically strictly
+positive, whenever the true \pvalue{} falls below \eqn{5 \times 10^{-324}}, \code{pval}
+is returned as \code{NA} and an informative console note is issued. The exact
+magnitude is retained in \code{log_pval}, which can be exported or evaluated via
+arbitrary-precision software (e.g. \code{exp(log_pval)}).
 }
 \examples{
 # Note: Reported p-values and term counts in comments are illustrative and

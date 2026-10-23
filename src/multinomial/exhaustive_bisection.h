@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <stdatomic.h>
 
 #ifndef BISECT_MAX_DEPTH
@@ -410,6 +410,8 @@ static void exhaustive_bisection(multinomial* mult, multinomial_result* mult_res
         if (get_dt(options->t_start, t_now) >= options->max_time) {
             mult_res->status = 1;
             mult_res->converged = 0;
+        mult_res->pval = NAN;
+        mult_res->log_pval = NAN;
             return;
         }
     }
@@ -435,10 +437,14 @@ static void exhaustive_bisection(multinomial* mult, multinomial_result* mult_res
     if (atomic_load(&timed_out)) {
         mult_res->status = 1;
         mult_res->converged = 0;
+        mult_res->pval = NAN;
+        mult_res->log_pval = NAN;
     } else {
+        real_t raw_p = p_acc;
         p_acc = p_acc*EXP(-MAX_EXP);
         if (options->verbose) Rprintf("exhaustive = %.8e\n", p_acc);
-        mult_res->pval = p_acc;
+        mult_res->pval = (p_acc >= 5e-324) ? p_acc : 0.0;
+        mult_res->log_pval = (raw_p > 0) ? (log(raw_p) - (double)MAX_EXP) : -INFINITY;
         mult_res->converged = 1;
         mult_res->status = 0;
     }

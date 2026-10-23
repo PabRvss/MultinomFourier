@@ -2,6 +2,8 @@
 
 S3method("$",multfourier)
 S3method("$",multinomfourier)
+S3method("[[",multfourier)
+S3method("[[",multinomfourier)
 S3method(print,multfourier)
 S3method(print,multinomfourier)
 export(pval_exact)

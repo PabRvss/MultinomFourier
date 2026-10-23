@@ -3,6 +3,7 @@
 ^MultFourier\.pdf$
 ^MultinomFourier\.pdf$
 ^tests\.R$
+^tests\.Rout$
 ^Rplots\.pdf$
 ^benchmark_ExactMultinom\.R$
 ^benchmark_runtime_comparison\.png$

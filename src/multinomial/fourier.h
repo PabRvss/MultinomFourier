@@ -629,7 +629,19 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
         Rprintf("converged: %s\n", converged_full ? "true" : "false");
     }
 
-    mult_res->pval = p;
+    if (mult_res->status == 1 || mult_res->status == 4 || isnanq(p)) {
+        mult_res->pval = NAN;
+        mult_res->log_pval = NAN;
+    } else {
+        if (p > 0) {
+            mult_res->log_pval = (double) log_quad(p);
+        } else if (eps_have && last_smooth > 0) {
+            mult_res->log_pval = log(last_smooth) + (double)eps_shift * 0.693147180559945309417232121458176568;
+        } else {
+            mult_res->log_pval = -INFINITY;
+        }
+        mult_res->pval = (p >= (mf_quad_t)5e-324) ? (double)p : 0.0;
+    }
     mult_res->converged = converged_full;
     mult_res->terms = iter+1;
     if (eps_have && options->extrapolate >= 2 && last_smooth_iter >= 0 && isfinite(last_rel_spread)) {

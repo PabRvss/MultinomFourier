@@ -107,3 +107,25 @@ stopifnot(fit_vignette_276$status == 0L)
 stopifnot(fit_vignette_276$pval > 0.5)
 cat("Tests de la vignette pasaron exitosamente.\n")
 
+# 11. Verificación de log_pval y p-valores menores a 5e-324
+stopifnot(!is.null(fit$log_pval), !is.null(fit$`log(pval)`))
+stopifnot(isTRUE(all.equal(fit$log_pval, log(fit$pval))))
+stopifnot(isTRUE(all.equal(fit$`log(pval)`, log(fit$pval))))
+stopifnot(isTRUE(all.equal(fit[["log(pval)"]], log(fit$pval))))
+stopifnot(isTRUE(all.equal(fit_ex$log_pval, log(fit_ex$pval))))
+
+# 11b. Instancia con p-valor < 5e-324 (debe retornar NA en pval y valor finito exacto en log_pval)
+x_tiny <- c(750, 0, 0)
+p_tiny <- rep(1/3, 3)
+fit_tiny_ex <- pval_exact(x_tiny, p_tiny)
+stopifnot(is.na(fit_tiny_ex$pval))
+stopifnot(!is.na(fit_tiny_ex$log_pval), is.finite(fit_tiny_ex$log_pval))
+# Teóricamente: 3 * (1/3)^750 = 3^(-749) -> ln(3^(-749)) = -749 * ln(3) = -822.8606
+stopifnot(abs(fit_tiny_ex$log_pval - (-749 * log(3))) < 1e-4)
+
+# Y lo mismo en Fourier:
+fit_tiny_fo <- pval_fourier(c(1000, 0, 0, 0), rep(0.25, 4))
+stopifnot(is.na(fit_tiny_fo$pval))
+stopifnot(!is.na(fit_tiny_fo$log_pval), is.finite(fit_tiny_fo$log_pval))
+cat("Tests de log_pval y underflow pasaron exitosamente.\n")
+

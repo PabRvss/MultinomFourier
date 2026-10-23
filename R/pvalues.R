@@ -36,10 +36,24 @@ build_multfourier_s3 <- function(raw, x, p, elapsed, requested_method, stat_labe
     status_msg <- "Maximum number of terms reached"
   }
   
+  pval_val <- as.numeric(raw$pval)
+  log_pval_val <- as.numeric(raw$log_pval)
+
+  # Check if p-value is smaller than 5e-324 (or underflow)
+  if (!is.na(log_pval_val) && is.finite(log_pval_val)) {
+    if (is.na(pval_val) || pval_val < 5e-324) {
+      pval_val <- NA_real_
+      if (status_id == 0L) {
+        message("Note: p-value < 5e-324 cannot be represented in 64-bit double precision and is reported as NA. Use $log_pval to preserve exact numerical magnitude.")
+      }
+    }
+  }
+
   out <- list(
     x = as.numeric(x),
     p = as.numeric(p),
-    pval = as.numeric(raw$pval),
+    pval = pval_val,
+    log_pval = log_pval_val,
     stat = as.character(stat_label),
     method = as.character(method_name),
     status = as.integer(status_id),
@@ -88,6 +102,9 @@ drop_removed_args <- function(dots) {
 
 #' @export
 `$.multinomfourier` <- function(x, name) {
+  if (name %in% c("log(pval)", "log.pval")) {
+    name <- "log_pval"
+  }
   if (name %in% names(multfourier_old_names)) {
     new <- multfourier_old_names[[name]]
     warning(sprintf("'%s' is deprecated; use '%s' instead.", name, new), call. = FALSE)
@@ -98,6 +115,24 @@ drop_removed_args <- function(dots) {
 
 #' @export
 `$.multfourier` <- `$.multinomfourier`
+
+#' @export
+`[[.multinomfourier` <- function(x, i, ...) {
+  if (is.character(i) && length(i) == 1L) {
+    if (i %in% c("log(pval)", "log.pval")) {
+      i <- "log_pval"
+    }
+    if (i %in% names(multfourier_old_names)) {
+      new <- multfourier_old_names[[i]]
+      warning(sprintf("'%s' is deprecated; use '%s' instead.", i, new), call. = FALSE)
+      i <- new
+    }
+  }
+  NextMethod()
+}
+
+#' @export
+`[[.multfourier` <- `[[.multinomfourier`
 
 # Helper interno para validar x y p (y reescalar p si rescale_p = TRUE, como
 # chisq.test(): mismo valor por defecto y misma tolerancia)
@@ -268,11 +303,25 @@ resolve_n_threads <- function(n_threads) {
 #' faster on large instances. With \code{exact_terms = TRUE}, terms are evaluated
 #' via exact polynomial convolution.
 #'
+#' \strong{Underflow below double precision.} In standard IEEE 754 64-bit floating-point
+#' arithmetic, positive numbers smaller than approximately \eqn{5 \times 10^{-324}}
+#' underflow to exact zero. Because multinomial \pvalue{}s are mathematically strictly
+#' positive, whenever the true \pvalue{} falls below \eqn{5 \times 10^{-324}}, \code{pval}
+#' is returned as \code{NA} and an informative console note is issued. The exact
+#' magnitude is retained in \code{log_pval}, which can be exported or evaluated via
+#' arbitrary-precision software (e.g. \code{exp(log_pval)}).
+#'
 #' @return An object of class \code{"multinomfourier"}: a list with components
 #' \describe{
 #'   \item{x, p}{The input counts and null probabilities (\code{p} after
 #'     rescaling, if \code{rescale_p = TRUE}).}
-#'   \item{pval}{The computed \pvalue{}.}
+#'   \item{pval}{The computed \pvalue{}, or \code{NA} if underflow occurs (when the
+#'     p-value is smaller than \eqn{5 \times 10^{-324}}, below the 64-bit double
+#'     precision limit) or if the algorithm did not converge.}
+#'   \item{log_pval}{Natural logarithm of the \pvalue{}. When the \pvalue{} is smaller
+#'     than \eqn{5 \times 10^{-324}}, \code{pval} is reported as \code{NA} to indicate
+#'     that it cannot be stored in 64-bit floating-point format without collapsing to
+#'     zero, but \code{log_pval} preserves the exact magnitude without underflow.}
 #'   \item{stat}{Name of the test statistic, e.g. \code{"Log-Likelihood Ratio"}
 #'     or \code{"power-divergence (lambda = 0.6667)"}.}
 #'   \item{method}{\code{"fourier"}.}
@@ -458,7 +507,9 @@ pval_fourier <- function(x,
 #'   \item{x, p}{The input counts and null probabilities (\code{p} after
 #'     rescaling, if \code{rescale_p = TRUE}).}
 #'   \item{pval}{The exact \pvalue{}, up to floating-point rounding; \code{NA} if
-#'     \code{max_time} was reached.}
+#'     \code{max_time} was reached or if the \pvalue{} is smaller than \eqn{5 \times 10^{-324}}.}
+#'   \item{log_pval}{Natural logarithm of the exact \pvalue{}. Preserves the exact
+#'     magnitude when \code{pval} is smaller than \eqn{5 \times 10^{-324}} and reported as \code{NA}.}
 #'   \item{stat}{Name of the test statistic, e.g. \code{"Log-Likelihood Ratio"}
 #'     or \code{"power-divergence (lambda = 0.6667)"}.}
 #'   \item{method}{\code{"exact"}.}
@@ -679,6 +730,9 @@ print.multinomfourier <- function(x, ...) {
   cat(sprintf("%-11s: %s\n", "Method", x$method))
   cat(sprintf("%-11s: %s\n", "Statistic", x$stat))
   cat(sprintf("%-11s: %s\n", "p-value", format(x$pval, digits = 8)))
+  if (!is.null(x$log_pval) && !is.na(x$log_pval)) {
+    cat(sprintf("%-11s: %s\n", "log(pval)", format(x$log_pval, digits = 8)))
+  }
   cat(sprintf("%-11s: %s\n", "Status", paste0(x$status, " (", x$message, ")")))
   if (!is.null(x$gamma) && !is.na(x$gamma)) {
     cat(sprintf("%-11s: %s\n", "Gamma", format(x$gamma, digits = 6)))
@@ -693,6 +747,10 @@ print.multinomfourier <- function(x, ...) {
     cat(sprintf("%-11s: %s\n", "Terms", x$n_terms))
   }
   cat(sprintf("%-11s: %s seconds\n", "Time", sprintf("%.6f", x$time)))
+  if (is.na(x$pval) && !is.null(x$log_pval) && !is.na(x$log_pval) && is.finite(x$log_pval)) {
+    cat("Note: p-value < 5e-324 is below 64-bit double precision and reported as NA.\n")
+    cat("      Use $log_pval to preserve exact numerical magnitude.\n")
+  }
   invisible(x)
 }
 
