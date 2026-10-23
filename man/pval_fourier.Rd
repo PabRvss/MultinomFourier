@@ -104,6 +104,7 @@ An object of class \code{"multinomfourier"}: a list with components
   \item{stat}{Name of the test statistic, e.g. \code{"Log-Likelihood Ratio"}
     or \code{"power-divergence (lambda = 0.6667)"}.}
   \item{method}{\code{"fourier"}.}
+  \item{Poissonized}{Logical; \code{TRUE} if the fast Poissonized Cauchy-integral evaluator was used (\code{exact_terms = FALSE}, the default), or \code{FALSE} if exact polynomial convolution was used (\code{exact_terms = TRUE}).}
   \item{time}{Total wall-clock time in seconds.}
   \item{gamma}{The exponential tilt \eqn{\gamma} applied to the statistic so
     that the series terms stay within floating-point range (a saddlepoint

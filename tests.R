@@ -31,6 +31,9 @@ fit_poisson <- pval_fourier(x, p, exact_terms = FALSE)
 fit_exact_t <- pval_fourier(x, p, exact_terms = TRUE)
 c(poisson = fit_poisson$pval, exact_terms = fit_exact_t$pval)
 stopifnot(isTRUE(all.equal(fit_poisson$pval, fit_exact_t$pval, tolerance = 1e-3)))
+stopifnot(isTRUE(fit_poisson$Poissonized))
+stopifnot(isFALSE(fit_exact_t$Poissonized))
+stopifnot(isTRUE(fit_poisson$poissonized))
 
 # 5.1 Verificación de nuevos outputs Q y D_Q en Fourier
 stopifnot(!is.null(fit$Q), !is.null(fit$D_Q))
@@ -52,7 +55,7 @@ fit_ex <- pval_exact(x_small, p_small)
 fit_fl <- pval_flexible(x_small, p_small)
 
 # En pval_exact Q y D_Q deben ser NA
-stopifnot(is.na(fit_ex$Q), is.na(fit_ex$D_Q))
+stopifnot(is.na(fit_ex$Q), is.na(fit_ex$D_Q), is.na(fit_ex$Poissonized))
 
 # 9. lambda <= -1 no está soportado: debe dar un error claro
 fit_bad <- tryCatch(pval_fourier(x, p, stat = "pd", lambda = -1), error = function(e) conditionMessage(e))

@@ -1,5 +1,5 @@
 # Helper interno para construir el objeto S3 multinomfourier
-build_multfourier_s3 <- function(raw, x, p, elapsed, requested_method, stat_label) {
+build_multfourier_s3 <- function(raw, x, p, elapsed, requested_method, stat_label, exact_terms = NULL) {
   method_name <- if (requested_method == "flexible") {
     if (!is.null(raw$method) && raw$method == 1L) "fourier" else "exact"
   } else {
@@ -12,6 +12,7 @@ build_multfourier_s3 <- function(raw, x, p, elapsed, requested_method, stat_labe
   n_terms_val <- if (method_name == "fourier") as.integer(raw$terms) else NA_integer_
   q_val <- if (method_name == "fourier" && !is.null(raw$Q) && !is.na(raw$Q) && raw$Q > 0) as.integer(raw$Q) else NA_integer_
   dq_val <- if (method_name == "fourier" && !is.null(raw$D_Q)) as.numeric(raw$D_Q) else NA_real_
+  poissonized_val <- if (method_name == "fourier") !isTRUE(exact_terms) else NA
   
   # Status ID y mensajes sin punto al final:
   # 0: Converged
@@ -54,6 +55,7 @@ build_multfourier_s3 <- function(raw, x, p, elapsed, requested_method, stat_labe
     p = as.numeric(p),
     pval = pval_val,
     log_pval = log_pval_val,
+    Poissonized = poissonized_val,
     stat = as.character(stat_label),
     method = as.character(method_name),
     status = as.integer(status_id),
@@ -105,6 +107,9 @@ drop_removed_args <- function(dots) {
   if (name %in% c("log(pval)", "log.pval")) {
     name <- "log_pval"
   }
+  if (tolower(name) == "poissonized") {
+    name <- "Poissonized"
+  }
   if (name %in% names(multfourier_old_names)) {
     new <- multfourier_old_names[[name]]
     warning(sprintf("'%s' is deprecated; use '%s' instead.", name, new), call. = FALSE)
@@ -121,6 +126,9 @@ drop_removed_args <- function(dots) {
   if (is.character(i) && length(i) == 1L) {
     if (i %in% c("log(pval)", "log.pval")) {
       i <- "log_pval"
+    }
+    if (tolower(i) == "poissonized") {
+      i <- "Poissonized"
     }
     if (i %in% names(multfourier_old_names)) {
       new <- multfourier_old_names[[i]]
@@ -325,6 +333,7 @@ resolve_n_threads <- function(n_threads) {
 #'   \item{stat}{Name of the test statistic, e.g. \code{"Log-Likelihood Ratio"}
 #'     or \code{"power-divergence (lambda = 0.6667)"}.}
 #'   \item{method}{\code{"fourier"}.}
+#'   \item{Poissonized}{Logical; \code{TRUE} if the fast Poissonized Cauchy-integral evaluator was used (\code{exact_terms = FALSE}, the default), or \code{FALSE} if exact polynomial convolution was used (\code{exact_terms = TRUE}).}
 #'   \item{time}{Total wall-clock time in seconds.}
 #'   \item{gamma}{The exponential tilt \eqn{\gamma} applied to the statistic so
 #'     that the series terms stay within floating-point range (a saddlepoint
@@ -462,7 +471,7 @@ pval_fourier <- function(x,
   raw <- .Call(c_run_multfourier, as.double(x), as.double(p), opts)
   elapsed <- (proc.time() - t0)[["elapsed"]]
 
-  build_multfourier_s3(raw, x, p, elapsed, "fourier", st$label)
+  build_multfourier_s3(raw, x, p, elapsed, "fourier", st$label, exact_terms = exact_terms)
 }
 
 #' Exact multinomial test p-value
@@ -521,7 +530,7 @@ pval_fourier <- function(x,
 #' }
 #' The components that describe the Fourier series are also present, so that
 #' results of both methods have the same structure, but are always \code{NA}:
-#' \code{gamma}, \code{time_gamma}, \code{W}, \code{n_terms}, \code{Q}, \code{D_Q},
+#' \code{Poissonized}, \code{gamma}, \code{time_gamma}, \code{W}, \code{n_terms}, \code{Q}, \code{D_Q},
 #' \code{err_rel_ext}, \code{err_rel_est}, \code{n_eff} and \code{nu_max_ratio}.
 #'
 #' @seealso \code{\link{pval_fourier}}, \code{\link{pval_flexible}}.
@@ -694,7 +703,7 @@ pval_flexible <- function(x,
   raw <- .Call(c_run_multfourier, as.double(x), as.double(p), opts)
   elapsed <- (proc.time() - t0)[["elapsed"]]
 
-  build_multfourier_s3(raw, x, p, elapsed, "flexible", st$label)
+  build_multfourier_s3(raw, x, p, elapsed, "flexible", st$label, exact_terms = exact_terms)
 }
 
 #' Print method for multinomfourier objects
@@ -734,6 +743,9 @@ print.multinomfourier <- function(x, ...) {
     cat(sprintf("%-11s: %s\n", "log(pval)", format(x$log_pval, digits = 8)))
   }
   cat(sprintf("%-11s: %s\n", "Status", paste0(x$status, " (", x$message, ")")))
+  if (!is.null(x$Poissonized) && !is.na(x$Poissonized)) {
+    cat(sprintf("%-11s: %s\n", "Poissonized", if (isTRUE(x$Poissonized)) "TRUE" else "FALSE"))
+  }
   if (!is.null(x$gamma) && !is.na(x$gamma)) {
     cat(sprintf("%-11s: %s\n", "Gamma", format(x$gamma, digits = 6)))
   }

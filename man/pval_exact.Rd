@@ -80,7 +80,7 @@ An object of class \code{"multinomfourier"}: a list with components
 }
 The components that describe the Fourier series are also present, so that
 results of both methods have the same structure, but are always \code{NA}:
-\code{gamma}, \code{time_gamma}, \code{W}, \code{n_terms}, \code{Q}, \code{D_Q},
+\code{Poissonized}, \code{gamma}, \code{time_gamma}, \code{W}, \code{n_terms}, \code{Q}, \code{D_Q},
 \code{err_rel_ext}, \code{err_rel_est}, \code{n_eff} and \code{nu_max_ratio}.
 }
 \description{
