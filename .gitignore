@@ -27,6 +27,7 @@ vignettes/*.html
 # Archivos de trabajo local / scratch
 # ------------------------------------------------------------------------------
 scratch/
+testlogpval.R
 
 # ------------------------------------------------------------------------------
 # Antigravity / Gemini / Asistentes IA

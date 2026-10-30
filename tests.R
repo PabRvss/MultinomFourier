@@ -132,3 +132,18 @@ stopifnot(is.na(fit_tiny_fo$pval))
 stopifnot(!is.na(fit_tiny_fo$log_pval), is.finite(fit_tiny_fo$log_pval))
 cat("Tests de log_pval y underflow pasaron exitosamente.\n")
 
+
+# 12. Verificación de stat_value y alias S0
+stopifnot(!is.null(fit$stat_value), !is.na(fit$stat_value))
+stopifnot(!is.null(fit$S0), !is.na(fit$S0))
+stopifnot(isTRUE(all.equal(fit$stat_value, fit$S0)))
+llr_expected <- 2 * (10 * log(10/12) + 20 * log(20/18))
+stopifnot(abs(fit$stat_value - llr_expected) < 1e-6)
+
+fit_fo_small <- pval_fourier(x_small, p_small)
+stopifnot(abs(fit_ex$stat_value - fit_fo_small$stat_value) < 1e-8)
+
+stopifnot(fit$stat == "Log-likelihood ratio")
+stopifnot(!is.null(fit[["log(p-value)"]]))
+stopifnot(isTRUE(all.equal(fit[["log(p-value)"]], fit$log_pval)))
+cat("Tests de stat_value y S0 pasaron exitosamente.\n")

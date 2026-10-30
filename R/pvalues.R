@@ -39,13 +39,14 @@ build_multfourier_s3 <- function(raw, x, p, elapsed, requested_method, stat_labe
   
   pval_val <- as.numeric(raw$pval)
   log_pval_val <- as.numeric(raw$log_pval)
+  stat_value_val <- if (!is.null(raw$stat_value)) as.numeric(raw$stat_value) else NA_real_
 
   # Check if p-value is smaller than 5e-324 (or underflow)
   if (!is.na(log_pval_val) && is.finite(log_pval_val)) {
     if (is.na(pval_val) || pval_val < 5e-324) {
       pval_val <- NA_real_
       if (status_id == 0L) {
-        message("Note: p-value < 5e-324 cannot be represented in 64-bit double precision and is reported as NA. Use $log_pval to preserve exact numerical magnitude.")
+        warning("The p-value is too small to represent as a positive double.\n$pval was set to NA; use $log_pval.", call. = FALSE)
       }
     }
   }
@@ -53,6 +54,7 @@ build_multfourier_s3 <- function(raw, x, p, elapsed, requested_method, stat_labe
   out <- list(
     x = as.numeric(x),
     p = as.numeric(p),
+    stat_value = stat_value_val,
     pval = pval_val,
     log_pval = log_pval_val,
     Poissonized = poissonized_val,
@@ -104,11 +106,14 @@ drop_removed_args <- function(dots) {
 
 #' @export
 `$.multinomfourier` <- function(x, name) {
-  if (name %in% c("log(pval)", "log.pval")) {
+  if (name %in% c("log(pval)", "log.pval", "log(p-value)", "log.p-value", "log.p_value")) {
     name <- "log_pval"
   }
   if (tolower(name) == "poissonized") {
     name <- "Poissonized"
+  }
+  if (name == "S0") {
+    name <- "stat_value"
   }
   if (name %in% names(multfourier_old_names)) {
     new <- multfourier_old_names[[name]]
@@ -124,11 +129,14 @@ drop_removed_args <- function(dots) {
 #' @export
 `[[.multinomfourier` <- function(x, i, ...) {
   if (is.character(i) && length(i) == 1L) {
-    if (i %in% c("log(pval)", "log.pval")) {
+    if (i %in% c("log(pval)", "log.pval", "log(p-value)", "log.p-value", "log.p_value")) {
       i <- "log_pval"
     }
     if (tolower(i) == "poissonized") {
       i <- "Poissonized"
+    }
+    if (i == "S0") {
+      i <- "stat_value"
     }
     if (i %in% names(multfourier_old_names)) {
       new <- multfourier_old_names[[i]]
@@ -175,7 +183,7 @@ resolve_stat_lambda <- function(stat, lambda = NULL) {
     stat_label <- "Pearson's Chi-Square"
   } else if (stat == "llr") {
     lambda_val <- 0.0
-    stat_label <- "Log-Likelihood Ratio"
+    stat_label <- "Log-likelihood ratio"
   } else if (stat == "pmf") {
     lambda_val <- NaN
     stat_label <- "Probability Mass Function"
@@ -323,6 +331,8 @@ resolve_n_threads <- function(n_threads) {
 #' \describe{
 #'   \item{x, p}{The input counts and null probabilities (\code{p} after
 #'     rescaling, if \code{rescale_p = TRUE}).}
+#'   \item{stat_value}{The observed value of the test statistic \eqn{T(x)}.
+#'   }
 #'   \item{pval}{The computed \pvalue{}, or \code{NA} if underflow occurs (when the
 #'     p-value is smaller than \eqn{5 \times 10^{-324}}, below the 64-bit double
 #'     precision limit) or if the algorithm did not converge.}
@@ -330,7 +340,7 @@ resolve_n_threads <- function(n_threads) {
 #'     than \eqn{5 \times 10^{-324}}, \code{pval} is reported as \code{NA} to indicate
 #'     that it cannot be stored in 64-bit floating-point format without collapsing to
 #'     zero, but \code{log_pval} preserves the exact magnitude without underflow.}
-#'   \item{stat}{Name of the test statistic, e.g. \code{"Log-Likelihood Ratio"}
+#'   \item{stat}{Name of the test statistic, e.g. \code{"Log-likelihood ratio"}
 #'     or \code{"power-divergence (lambda = 0.6667)"}.}
 #'   \item{method}{\code{"fourier"}.}
 #'   \item{Poissonized}{Logical; \code{TRUE} if the fast Poissonized Cauchy-integral evaluator was used (\code{exact_terms = FALSE}, the default), or \code{FALSE} if exact polynomial convolution was used (\code{exact_terms = TRUE}).}
@@ -515,11 +525,13 @@ pval_fourier <- function(x,
 #' \describe{
 #'   \item{x, p}{The input counts and null probabilities (\code{p} after
 #'     rescaling, if \code{rescale_p = TRUE}).}
+#'   \item{stat_value}{The observed value of the test statistic \eqn{T(x)}.
+#'   }
 #'   \item{pval}{The exact \pvalue{}, up to floating-point rounding; \code{NA} if
 #'     \code{max_time} was reached or if the \pvalue{} is smaller than \eqn{5 \times 10^{-324}}.}
 #'   \item{log_pval}{Natural logarithm of the exact \pvalue{}. Preserves the exact
 #'     magnitude when \code{pval} is smaller than \eqn{5 \times 10^{-324}} and reported as \code{NA}.}
-#'   \item{stat}{Name of the test statistic, e.g. \code{"Log-Likelihood Ratio"}
+#'   \item{stat}{Name of the test statistic, e.g. \code{"Log-likelihood ratio"}
 #'     or \code{"power-divergence (lambda = 0.6667)"}.}
 #'   \item{method}{\code{"exact"}.}
 #'   \item{status}{\code{0}: the computation finished; \code{1}:
@@ -734,34 +746,37 @@ pval_flexible <- function(x,
 #' fit_exact
 #' @export
 print.multinomfourier <- function(x, ...) {
-  cat("Multinomial Test (MultinomFourier)\n")
-  cat("----------------------------------\n")
-  cat(sprintf("%-11s: %s\n", "Method", x$method))
-  cat(sprintf("%-11s: %s\n", "Statistic", x$stat))
-  cat(sprintf("%-11s: %s\n", "p-value", format(x$pval, digits = 8)))
+  cat("Multinomial Goodness-of-Fit Test (MultinomFourier)\n")
+  cat("------------------------------------------------\n")
+  cat(sprintf("%-16s: %s\n", "Statistic", x$stat))
+  if (!is.null(x$stat_value) && !is.na(x$stat_value)) {
+    cat(sprintf("%-16s: %s\n", "Statistic value", format(x$stat_value, digits = 8)))
+  }
+  cat(sprintf("%-16s: %s\n", "p-value", format(x$pval, digits = 8)))
   if (!is.null(x$log_pval) && !is.na(x$log_pval)) {
-    cat(sprintf("%-11s: %s\n", "log(pval)", format(x$log_pval, digits = 8)))
+    cat(sprintf("%-16s: %s\n", "log(p-value)", format(x$log_pval, digits = 8)))
   }
-  cat(sprintf("%-11s: %s\n", "Status", paste0(x$status, " (", x$message, ")")))
+  cat("\nComputation\n")
+  cat(sprintf("%-16s: %s\n", "Method", if (!is.null(x$method)) tools::toTitleCase(x$method) else "NA"))
   if (!is.null(x$Poissonized) && !is.na(x$Poissonized)) {
-    cat(sprintf("%-11s: %s\n", "Poissonized", if (isTRUE(x$Poissonized)) "TRUE" else "FALSE"))
+    cat(sprintf("%-16s: %s\n", "Poissonized", if (isTRUE(x$Poissonized)) "Yes" else "No"))
   }
+  cat(sprintf("%-16s: %s\n", "Status", x$message))
   if (!is.null(x$gamma) && !is.na(x$gamma)) {
-    cat(sprintf("%-11s: %s\n", "Gamma", format(x$gamma, digits = 6)))
-  }
-  if (!is.null(x$time_gamma) && !is.na(x$time_gamma)) {
-    cat(sprintf("%-11s: %s seconds\n", "Time gamma", format(x$time_gamma, digits = 4)))
+    cat(sprintf("%-16s: %s\n", "Gamma", format(x$gamma, digits = 6)))
   }
   if (!is.null(x$W) && !is.na(x$W)) {
-    cat(sprintf("%-11s: %s\n", "W", format(x$W, digits = 6)))
+    cat(sprintf("%-16s: %s\n", "W", format(x$W, digits = 6)))
   }
   if (!is.null(x$n_terms) && !is.na(x$n_terms)) {
-    cat(sprintf("%-11s: %s\n", "Terms", x$n_terms))
+    cat(sprintf("%-16s: %s\n", "Terms", x$n_terms))
   }
-  cat(sprintf("%-11s: %s seconds\n", "Time", sprintf("%.6f", x$time)))
+  if (!is.null(x$time_gamma) && !is.na(x$time_gamma)) {
+    cat(sprintf("%-16s: %s s\n", "Gamma time", format(x$time_gamma, digits = 4)))
+  }
+  cat(sprintf("%-16s: %s s\n", "Total time", format(x$time, digits = 4)))
   if (is.na(x$pval) && !is.null(x$log_pval) && !is.na(x$log_pval) && is.finite(x$log_pval)) {
-    cat("Note: p-value < 5e-324 is below 64-bit double precision and reported as NA.\n")
-    cat("      Use $log_pval to preserve exact numerical magnitude.\n")
+    cat("\nWarning:\nThe p-value is too small to represent as a positive double.\n$pval was set to NA; use $log_pval.\n")
   }
   invisible(x)
 }

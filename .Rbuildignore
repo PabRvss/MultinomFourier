@@ -4,6 +4,7 @@
 ^MultinomFourier\.pdf$
 ^tests\.R$
 ^tests\.Rout$
+^testlogpval\.R$
 ^Rplots\.pdf$
 ^benchmark_ExactMultinom\.R$
 ^benchmark_runtime_comparison\.png$

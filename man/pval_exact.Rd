@@ -65,11 +65,13 @@ An object of class \code{"multinomfourier"}: a list with components
 \describe{
   \item{x, p}{The input counts and null probabilities (\code{p} after
     rescaling, if \code{rescale_p = TRUE}).}
+  \item{stat_value}{The observed value of the test statistic \eqn{T(x)}.
+  }
   \item{pval}{The exact \pvalue{}, up to floating-point rounding; \code{NA} if
     \code{max_time} was reached or if the \pvalue{} is smaller than \eqn{5 \times 10^{-324}}.}
   \item{log_pval}{Natural logarithm of the exact \pvalue{}. Preserves the exact
     magnitude when \code{pval} is smaller than \eqn{5 \times 10^{-324}} and reported as \code{NA}.}
-  \item{stat}{Name of the test statistic, e.g. \code{"Log-Likelihood Ratio"}
+  \item{stat}{Name of the test statistic, e.g. \code{"Log-likelihood ratio"}
     or \code{"power-divergence (lambda = 0.6667)"}.}
   \item{method}{\code{"exact"}.}
   \item{status}{\code{0}: the computation finished; \code{1}:

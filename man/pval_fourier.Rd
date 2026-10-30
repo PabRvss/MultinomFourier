@@ -94,6 +94,8 @@ An object of class \code{"multinomfourier"}: a list with components
 \describe{
   \item{x, p}{The input counts and null probabilities (\code{p} after
     rescaling, if \code{rescale_p = TRUE}).}
+  \item{stat_value}{The observed value of the test statistic \eqn{T(x)}.
+  }
   \item{pval}{The computed \pvalue{}, or \code{NA} if underflow occurs (when the
     p-value is smaller than \eqn{5 \times 10^{-324}}, below the 64-bit double
     precision limit) or if the algorithm did not converge.}
@@ -101,7 +103,7 @@ An object of class \code{"multinomfourier"}: a list with components
     than \eqn{5 \times 10^{-324}}, \code{pval} is reported as \code{NA} to indicate
     that it cannot be stored in 64-bit floating-point format without collapsing to
     zero, but \code{log_pval} preserves the exact magnitude without underflow.}
-  \item{stat}{Name of the test statistic, e.g. \code{"Log-Likelihood Ratio"}
+  \item{stat}{Name of the test statistic, e.g. \code{"Log-likelihood ratio"}
     or \code{"power-divergence (lambda = 0.6667)"}.}
   \item{method}{\code{"fourier"}.}
   \item{Poissonized}{Logical; \code{TRUE} if the fast Poissonized Cauchy-integral evaluator was used (\code{exact_terms = FALSE}, the default), or \code{FALSE} if exact polynomial convolution was used (\code{exact_terms = TRUE}).}

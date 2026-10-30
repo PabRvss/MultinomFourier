@@ -21,6 +21,7 @@ typedef struct {
 } multinomial;
 
 typedef struct {
+    double S0;
     double pval;
     double log_pval;
     int_t converged;
@@ -490,6 +491,9 @@ static void fill_mult1(multinomial* mult, multinomial_result* mult_res, const in
     fill_p0(mult, x0, options);
     fill_probs(mult);
     fill_rewards(mult, x0, options);
+    mult_res->S0 = mult->r0;
+    if (real_isnan(options->lambda)) mult_res->S0 += lgac[mult->N];
+    else mult_res->S0 = -2*mult_res->S0;
 }
 
 static void fill_mult2(multinomial* mult, multinomial_result* mult_res, const int_t* restrict x0, const options_t* options) {
