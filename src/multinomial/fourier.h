@@ -637,6 +637,8 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
             mult_res->log_pval = (double) log_quad(p);
         } else if (eps_have && last_smooth > 0) {
             mult_res->log_pval = log(last_smooth) + (double)eps_shift * 0.693147180559945309417232121458176568;
+        } else if (mult->log_p0 < 0 && isfinite(mult->log_p0)) {
+            mult_res->log_pval = (double) mult->log_p0;
         } else {
             mult_res->log_pval = -INFINITY;
         }

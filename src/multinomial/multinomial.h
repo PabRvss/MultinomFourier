@@ -13,6 +13,7 @@ typedef struct {
     real_t* restrict log_probs;
     cell_t* restrict matrix;
     mf_quad_t p0;
+    real_t log_p0;
     real_t r0;
     real_t T;
     real_t W;
@@ -72,7 +73,8 @@ static void fill_p0(multinomial* mult, const int_t* restrict x0, const options_t
     int_t N = mult->N;
     real_t log_p0 = 0;
     for (int_t k=0; k<K; k++) log_p0 += reward_logp(mult->log_probs[k], x0[k]);
-    mult->p0 = expq(lgac[N] + log_p0);
+    mult->log_p0 = lgac[N] + log_p0;
+    mult->p0 = expq(mult->log_p0);
 }
 
 static void fill_probs(multinomial* mult) {

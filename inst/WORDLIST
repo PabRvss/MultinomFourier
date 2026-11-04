@@ -7,6 +7,7 @@ Escuela
 Hochberg
 Iquique
 LLR
+ORCID
 PMF
 Poissonized
 QUADPACK's
@@ -38,6 +39,7 @@ precomputes
 pval
 qquad
 saddlepoint
+testthat
 vanishingly
 votación
 widehat

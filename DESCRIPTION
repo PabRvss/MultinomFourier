@@ -3,10 +3,12 @@ Type: Package
 Title: p-Values of Multinomial Goodness-of-Fit Tests by Fourier Series Inversion
 Version: 1.0
 Authors@R: 
-    c(person("Charles", "Thraves", role = "aut"),
+    c(person("Charles", "Thraves", role = "aut", comment = c(ORCID = "0000-0001-7491-7477")),
       person("Pablo", "Rivas", role = c("aut", "cre"), email = "pablo.rivas.g@ug.uchile.cl"),
       person("Felipe", "Subiabre", role = "aut"))
-Author: Charles Thraves [aut], Pablo Rivas [aut, cre], Felipe Subiabre [aut]
+Author: Charles Thraves [aut] (<https://orcid.org/0000-0001-7491-7477>),
+    Pablo Rivas [aut, cre],
+    Felipe Subiabre [aut]
 Maintainer: Pablo Rivas <pablo.rivas.g@ug.uchile.cl>
 Description: 
     Computes p-values of multinomial goodness-of-fit tests based on an
@@ -25,6 +27,8 @@ Imports:
 Suggests: 
     knitr,
     rmarkdown,
-    ggplot2
+    ggplot2,
+    testthat (>= 3.0.0)
 VignetteBuilder: knitr
+Config/testthat/edition: 3
 Config/roxygen2/version: 8.1.0
