@@ -86,8 +86,9 @@ information while running. Default \code{FALSE}.}
 \item{...}{Advanced options passed to the C engine, for example
 \code{print_freq} (how often partial sums are printed when
 \code{verbose = TRUE}; default 100) or \code{extrapolate} (0: no
-extrapolation; 1: report the extrapolated value; 2: also stop on it, the
-default). Unknown names produce a warning.}
+extrapolation; 1: report the extrapolated value; 2: also stop on it;
+3: report the median of the deep extrapolation table over the final
+window, the default). Unknown names produce a warning.}
 }
 \value{
 An object of class \code{"multinomfourier"}: a list with components
@@ -191,11 +192,11 @@ check the returned \code{status}.
 series for every additive statistic, but the number of terms needed for a given
 accuracy depends on the statistic. For \code{"llr"} and \code{"pmf"} the series
 typically converges in a few hundred to a few thousand terms. For \code{"chi2"},
-and often for \code{"pd"} unless \eqn{\lambda} is close to 0 (\eqn{\lambda = 2/3}
-has failed on real data), the values of the statistic lie on or near a
-lattice, the terms do not decay, and the series can fail to
-converge within \code{max_terms} (\code{status = 2}) or even return a negative
-value. In that case use \code{\link{pval_exact}} when it is feasible.
+and for \code{"pd"} as \eqn{\lambda} moves away from 0, the values of the
+statistic lie on or near a lattice and the terms decay much more slowly, so the
+series often needs many more terms and can fail to converge within
+\code{max_terms} (\code{status = 2}) or even return a negative value. In that
+case use \code{\link{pval_exact}} when it is feasible.
 
 \strong{Stopping rule and reported value.} The
 partial sums are accelerated with Wynn's epsilon algorithm (in the safeguarded
@@ -203,8 +204,13 @@ form of QUADPACK's DQELG) and smoothed with a running median of five. The
 series stops as soon as either (i) \code{B} consecutive terms are each smaller
 than \code{rel_eps / B} relative to the partial sum, or (ii) the smoothed
 extrapolated values vary by at most a relative \code{rel_eps} over a trailing
-window covering the last half of the terms. The reported \pvalue{} is the last
-smoothed extrapolated value.
+window covering the last half of the terms. Two epsilon tables are kept in
+parallel: a shallow one, which drives the stopping rule above, and a deep one.
+With \code{extrapolate = 3} (the default) the reported \pvalue{} is the median
+of the deep table over the last quarter of the terms, which is markedly more
+accurate for lattice-like statistics such as \code{"chi2"}; with
+\code{extrapolate = 2} it is the last smoothed value of the shallow table.
+The stopping point is the same either way.
 
 \strong{Term evaluation.} With \code{exact_terms = FALSE} (default), terms are
 evaluated via a Poissonized Cauchy-integral evaluator, which is significantly
