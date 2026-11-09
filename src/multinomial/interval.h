@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 // Fast replacement for fill_interval's O(K*N^2) dynamic program (multinomial.h). Computes the
 // exact range [s_min, s_max] of S(x) - S(x0) = sum_k [g_k(x_k) - g_k(x0_k)] over integer

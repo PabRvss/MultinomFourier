@@ -50,7 +50,7 @@ Report bugs at \url{https://github.com/PabRvss/MultinomFourier/issues}.
 Authors:
 \itemize{
   \item Pablo Rivas \email{pablo.rivas.g@ug.uchile.cl}
-  \item Charles Thraves
+  \item Charles Thraves (\href{https://orcid.org/0000-0001-7491-7477}{ORCID})
   \item Felipe Subiabre
 }
 

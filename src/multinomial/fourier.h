@@ -45,7 +45,7 @@ typedef struct {
 // its next vector (step_z, also shared). So a thread carries one complex number per cell (phase)
 // and the whole frequency loop runs on multiplications: no transcendental call survives inside it.
 //
-// This is why eval_fourier_parallel hands thread t the frequencies n = t (mod threads) instead of a
+// This is why fourier_pool_create hands thread t the frequencies n = t (mod threads) instead of a
 // contiguous block. A fixed stride in n is what makes the advance factor constant, and it is also
 // what keeps the recurrence alive across the chunk boundary in series(), which re-creates the
 // threads for every chunk; thread t's frequencies form one arithmetic progression over the whole
@@ -114,10 +114,6 @@ static void phase_tables(
 #include "fourier_fft.h"
 #include "fourier_fft_precompute.h"
 #include "fourier_poisson.h"
-// #include "../multinomial_quad/fourier_fft_quad.h"
-// #include "../multinomial_quad/fourier_fft_quad_precompute.h"
-// #include "../multinomial_dd/fourier_fft_dd.h"
-// #include "../multinomial_dd/fourier_fft_dd_precompute.h"
 
 static void* eval_fourier_thread(void* args_void) {
     arguments_t* args = args_void;
@@ -210,12 +206,8 @@ static void* (*select_fourier_eval_fn(const options_t* restrict options))(void*)
 }
 
 // A persistent thread pool for series(), which calls the evaluator once per chunk (typically
-// hundreds to tens of thousands of times per run). Creates and joins pthreads across the evaluation.
-// `threads` pthreads on every call, which is wasted work repeated once per chunk; on this machine
-// creating and joining 8 threads costs on the order of 10 microseconds, comparable to or larger
-// than a whole chunk's worth of series evaluation once the Poissonised evaluator or a small
-// instance is in use (see latex/poisson.tex, Table on per-frequency cost). Here the threads are
-// created once, park on a condition variable between chunks, and are joined once at the end.
+// hundreds to tens of thousands of times per run). The threads are created once, park on a condition
+// variable between chunks, and are joined once at the end.
 //
 // Everything that does not change from one chunk to the next -- mult, res_arr, plan, the phase
 // tables, the evaluator function pointer -- is written into each worker's arguments_t once, at
@@ -310,8 +302,7 @@ static fourier_pool_t* fourier_pool_create(
 }
 
 // Run one chunk: n = n_min+i, n_min+i+threads, ... < n_max for thread i (thread 0 alone when there
-// is no pool), matching the striding eval_fourier_parallel uses so the phase recurrence's constant
-// advance factor (see phase_load) is unaffected by this refactor.
+// is no pool), so the phase recurrence's constant advance factor (see phase_load) is unaffected by this refactor.
 static void fourier_pool_run(fourier_pool_t* restrict pool, const int_t n_min, const int_t n_max, const int_t warm) {
     const int_t threads = pool->threads;
 
@@ -414,8 +405,6 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
         }
     }
 
-    // One pool of threads for the whole run: see fourier_pool_t above for why per-chunk
-    // pthread_create/pthread_join (the old eval_fourier_parallel) is wasted work here.
     fourier_pool_t* pool = fourier_pool_create(mult, options, plan, res_arr, local_arrs, vec_arrs,
                                                phase_arrs, lane, step_z);
 
@@ -565,7 +554,7 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
                                     dqmin[tmin++] = iter;
 
                                     int_t w = (int_t)(STOP_WINDOW_FRAC*(double)iter);
-                                    if (w < CONV_COUNT) w = CONV_COUNT;
+                                    if (w < B) w = B;
                                     const int_t lo = iter - w;
                                     while (hmax < tmax && dqmax[hmax] < lo) hmax++;
                                     while (hmin < tmin && dqmin[hmin] < lo) hmin++;
@@ -642,10 +631,12 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
         deep_arr = NULL;
     }
 
+    double ext_val = NAN;
     if (eps_have && options->extrapolate >= 3 && isfinite(deep_med)) {
         // The reported value is the median of the deep table over the lagged window. The stopping
-        // decision (shallow table, median of five, window) does not change, and neither does
+        // decision (shallow table, median of 5, window) does not change, and neither does
         // err_rel_ext, which still measures the dispersion of that shallow table.
+        ext_val = deep_med;
         p = scalbnq((mf_quad_t)deep_med, (int)eps_shift);
     }
     else if (eps_have && options->extrapolate >= 2 && last_smooth_iter >= 0) {
@@ -655,9 +646,11 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
         // reporting from it would silently reintroduce the fragility just removed from the
         // stopping decision -- a stable stopping point paired with an unstable reported value
         // is not actually fixed.
+        ext_val = last_smooth;
         p = scalbnq((mf_quad_t)last_smooth, (int)eps_shift);
     }
     else if (eps_have && options->extrapolate && epsalg_ready(&eps)) {
+        ext_val = eps.result;
         p = scalbnq((mf_quad_t)eps.result, (int)eps_shift);
     }
 
@@ -674,8 +667,8 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
     } else {
         if (p > 0) {
             mult_res->log_pval = (double) log_quad(p);
-        } else if (eps_have && last_smooth > 0) {
-            mult_res->log_pval = log(last_smooth) + (double)eps_shift * 0.693147180559945309417232121458176568;
+        } else if (eps_have && isfinite(ext_val) && ext_val > 0) {
+            mult_res->log_pval = log(ext_val) + (double)eps_shift * 0.693147180559945309417232121458176568;
         } else if (mult->log_p0 < 0 && isfinite(mult->log_p0)) {
             mult_res->log_pval = (double) mult->log_p0;
         } else {

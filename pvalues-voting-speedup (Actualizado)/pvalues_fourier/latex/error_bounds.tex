@@ -1,0 +1,942 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{natbib}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollary}
+\newtheorem{remark}{Remark}
+
+\newcommand{\eps}{\varepsilon}
+\newcommand{\Neff}{N_{\mathrm{eff}}}
+\newcommand{\sinck}{\operatorname{\mathsf{sinc}}}
+
+\title{Truncation Error of the Multinomial Inversion Series\\
+\large Uniform smoothing, Wiener's theorem, and why the chi-squared statistic fails}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+The series this codebase sums to obtain an exact multinomial p-value is a trapezoid-rule inverse
+Laplace transform, and the factor it calls \texttt{sinc} is exactly the transform of a uniform
+smoothing variable $U\sim\mathrm{Unif}[0,W]$: the computation recovers the \emph{density} of $S+U$
+at zero, which equals $P(S\le0)$ up to the constant $W$. Reading it that way makes the truncation
+error tractable. The error is $\sum_{|n|>L}c_n M_S(\gamma+inT)$ with $c_n$ explicit and
+data-independent, so everything hinges on the decay of the statistic's own transform $M_S$; the
+$1/n$ floor that limits it comes from the \emph{edges of the smoothing box}, not from any
+discontinuity in the statistic. Wiener's theorem then makes precise the observation that a large,
+diffuse support converges far better than a worst-case analysis predicts: the root-mean-square of
+$M_S$ over frequency is $M_S(\gamma)/\sqrt{\Neff}$, where $\Neff$ is the participation ratio of the
+tilted measure's atoms. This yields an error estimate computable from terms already summed, which
+we validate against exact enumeration (agreeing within a factor of $0.14$–$4.6$ across 24 cases).
+The same diagnostic explains, quantitatively, why the chi-squared statistic ($\lambda=1$) fails in
+practice while the log-likelihood-ratio and probability-mass statistics do not: chi-squared's
+rewards are quadratic in the counts with rationally related coefficients, putting the attainable
+values on a lattice, and its measured $\Neff$ \emph{degrades} towards $1$ as $K$ grows
+($5.2\to1.08$ for $K=5\to20$) while the others improve by five orders of magnitude. At $K\ge10$ it
+returns negative p-values.
+\end{abstract}
+
+\tableofcontents
+
+\section{What the series actually computes}
+\label{sec:setup}
+
+Let $S=\sum_k a_k(X_k)$ be the centred statistic ($a_k$ = \texttt{matrix[].reward}), so that the
+p-value is $p=P(S\le0)$, and let $\gamma$ be the exponential tilt chosen by \texttt{fill\_gamma}.
+Write $z_n=\gamma+inT$ and $M_S(z)=\mathbb E[e^{-zS}]$.
+
+Throughout, $L$ denotes the number of \emph{series terms} retained (the truncation index, so that
+$|n|\le L$), while $N$ and $K$ keep their usual meaning as the \emph{instance size} --- the number
+of trials and of categories. The two are unrelated and appear together constantly: the standard demo
+instance is $N=1000$, $K=10$, summed to $L\approx10^3$ terms. ($\Neff$, introduced in
+\S\ref{sec:wiener}, is a third and distinct quantity: the effective number of atoms of the tilted
+measure.)
+
+The factor the evaluators multiply into every term,
+\[
+  \sinck(z)\;=\;\frac{1-e^{-zW}}{zW},\qquad W=\pi/T ,
+\]
+is not an ad-hoc regulariser. It is exactly the two-sided Laplace transform of a uniform random
+variable:
+\[
+  \mathbb E\big[e^{-zU}\big]\;=\;\frac1W\int_0^W e^{-zu}\,du\;=\;\frac{1-e^{-zW}}{zW},
+  \qquad U\sim\mathrm{Unif}[0,W],\ \ U\perp S .
+\]
+Hence each stored term is $\texttt{res\_arr}[n]=M_S(z_n)\sinck(z_n)=M_{S+U}(z_n)$, the transform of
+the \emph{smoothed} variable $Y=S+U$. Convolving with $U$ is what turns the atomic $S$ into
+something possessing an honest density: each point mass is spread rightwards over a box of width
+$W$.
+
+\begin{proposition}[The identity the code exploits]
+\label{prop:identity}
+If $-W\le s_{\min}$ and $s_{\max}\le W$, then
+\[
+  p\;=\;P(S\le 0)\;=\;W\cdot f_{S+U}(0).
+\]
+\end{proposition}
+\begin{proof}
+$f_{S+U}(0)=\sum_j P(S=s_j)\,f_U(-s_j)=\frac1W\sum_{j:\,-W\le s_j\le0}P(S=s_j)=\frac1W P(-W\le S\le0)$,
+and $S\ge s_{\min}\ge-W$ makes the truncation vacuous.
+\end{proof}
+
+So the computation is density estimation, not CDF evaluation, and the two differ only by the
+constant $W$. Inverting by the trapezoid rule on the Bromwich contour,
+\[
+  f_Y(0)=\frac1{2\pi}\int_{-\infty}^{\infty}\! M_Y(\gamma+it)\,dt
+  \;\approx\;\frac{T}{2\pi}\sum_{n\in\mathbb Z}M_Y(z_n),
+\]
+and since $WT=\pi$, Proposition~\ref{prop:identity} gives
+$p=\tfrac12\sum_{n\in\mathbb Z}M_Y(z_n)$ — precisely what \texttt{series()} accumulates, with
+$\texttt{res\_arr}[0]$ halved and the negative $n$ folded in by conjugate symmetry. This is the
+Fourier-series inversion method of \citet{abatewhitt1992}, specialised to a lattice-free statistic.
+
+\begin{remark}[Why $W=\max(s_{\max},-s_{\min})$]
+The trapezoid rule returns the \emph{periodised} density $\sum_m f_Y(2mW)$, so exactness needs
+$f_Y(2mW)=0$ for $m\ne0$. Since $\operatorname{supp}f_Y\subseteq[s_{\min},s_{\max}+W]$, the binding
+image is $m=1$, requiring $s_{\max}\le W$; Proposition~\ref{prop:identity} separately requires
+$-s_{\min}\le W$. Together these are exactly \texttt{fill\_interval}'s
+$W=\max(s_{\max},-s_{\min})$, and the \texttt{undersampling} option is the knob that deliberately
+violates them.
+\end{remark}
+
+\section{Deconvolution, and a free correctness check}
+\label{sec:deconv}
+
+Because $\sinck$ is known in closed form and carries no data dependence,
+\[
+  M_S(z_n)\;=\;\texttt{res\_arr}[n]\,/\,\sinck(z_n)
+\]
+recovers the statistic's own transform by dividing out the kernel — an exact deconvolution. Every
+diagnostic below is a statement about this recovered sequence.
+
+
+The first is free. Since $\nu(ds):=e^{-\gamma s}P_S(ds)$ is a \emph{positive} measure with
+$M_S(z_n)=\hat\nu(n)$ its Fourier--Stieltjes coefficients,
+\begin{equation}
+  \label{eq:ceiling}
+  |M_S(\gamma+inT)|\;\le\;M_S(\gamma)\qquad\text{for every }n,
+\end{equation}
+with equality only at $n=0$. A violation is impossible mathematically, so it is a pure numerical-bug
+detector, costing one division and one comparison per term. It is not hypothetical: the
+endpoint-chord tilt bug diagnosed alongside this work violated \eqref{eq:ceiling} by roughly
+nineteen orders of magnitude at $n=0$ on the standard $N{=}1000$, $K{=}10$ instance, and would have
+been caught by this check on the very first term.
+
+\begin{remark}[$M_S(\gamma)$ is not the first term of the series]
+\label{rem:notfirstterm}
+Quantities like $M_S(\gamma)/p\approx61$ appear repeatedly below, and they sit oddly beside the
+observation that the series' first term is \emph{smaller} than $p$ by one to two orders of
+magnitude. Both are correct; they are separated by exactly the kernel factor. For the demo instance
+$\gamma W=\pi\gamma/T\approx2951$, so
+\[
+  \sinck(\gamma W)=\mathbb E\big[e^{-\gamma U}\big]\approx\frac1{\gamma W}\approx3.4\times10^{-4},
+\]
+and therefore
+\[
+  \underbrace{M_S(\gamma)\;\approx\;61\,p}_{\text{transform at zero frequency}}
+  \qquad\text{but}\qquad
+  \underbrace{\texttt{res\_arr}[0]=M_S(\gamma)\sinck(\gamma W)\;\approx\;p/48}_{\text{first series term}} ,
+\]
+the two differing by the factor $61\times3.4\times10^{-4}\approx0.021$. $M_S(\gamma)$ is the total
+mass of the tilted measure $\nu$, and $M_S(\gamma)\ge p$ is just the Chernoff bound; at the
+saddlepoint the gap is the usual $\gamma\sigma\sqrt{2\pi}\approx65$, matching the measured $61$ for
+$\sigma_S\approx26.1$ (computed properly, not backed out, in \S\ref{sec:saddle}). The first \emph{term}, by contrast, carries the smoothing kernel, which is
+suppressed by $1/(\gamma W)$ because $U$ is spread over a width $W$ far exceeding the tilt scale
+$1/\gamma$.
+
+This also explains why the sum needs many terms even though it converges quickly: $p=Wf_{S+U}(0)$
+is a \emph{local} quantity, and the $n=0$ term knows only the total mass. The coefficients $\mu_n$
+stay near $M_S(\gamma)$ out to the correlation scale $n\sim1/(T\sigma)\approx36$, and roughly that
+many terms of size $\sim M_S(\gamma)/(2W\gamma)$ accumulate to $p$ --- consistent with the observed
+partial sums, which reach $99.7\%$ of the final value by $n=100$.
+\end{remark}
+
+\section{The saddlepoint characterization of $\gamma$}
+\label{sec:saddle}
+
+\texttt{fill\_gamma} chooses $\gamma$ by minimizing, over real $z$,
+\[
+  L(z)\;:=\;\log M_S(z)+\log\sinck(z)\;=\;\log M_{S+U}(z),
+\]
+i.e.\ it minimizes the log-MGF of the \emph{smoothed} variable $S+U$, not of $S$ itself. Since
+$M_{S+U}(z)=\mathbb E[e^{-z(S+U)}]$ is an ordinary two-sided Laplace transform of a variable with an
+honest density, this is the textbook large-deviations tilt-selection problem, and its stationary
+point is exactly the condition that the $\gamma$-tilted mean of $S+U$ vanishes:
+\begin{equation}
+  \label{eq:saddle-SU}
+  E_\gamma[S+U]\;=\;0 .
+\end{equation}
+Because $U\sim\mathrm{Unif}[0,W]$ is independent of $S$, tilting the sum by $e^{-z(S+U)}=e^{-zS}e^{-zU}$
+tilts each factor independently by the same $z$, so \eqref{eq:saddle-SU} splits as
+\begin{equation}
+  \label{eq:saddle-split}
+  E_\gamma[S]\;=\;-E_\gamma[U],\qquad
+  E_\gamma[U]\;=\;-\frac{d}{d\gamma}\log\sinck(\gamma)\;=\;\frac1\gamma-\frac{W e^{-\gamma W}}{1-e^{-\gamma W}},
+\end{equation}
+which for the $\gamma W\gg1$ regime this codebase always runs in ($\gamma W\approx2800$ on the demo
+instance) collapses to $E_\gamma[U]\approx1/\gamma$: a heavily tilted $\mathrm{Unif}[0,W]$ is, to
+exponential accuracy, an $\mathrm{Exp}(\gamma)$ variable, since the truncation at $W$ is never felt.
+
+\begin{remark}[This resolves the earlier double-saddlepoint confusion]
+A first attempt to estimate $\sigma$ by summing per-category variances independently, as if each
+$X_k$ were an unconstrained Poisson-type count, gave a value wrong by a factor of $48$: it silently
+imposed $E_\gamma[S]=0$ for a variable with no $\sum_kX_k=N$ constraint, which is not the problem
+being solved. The count-tilt $\theta$ (\texttt{l\_rate}/$\nu$ in the code, \texttt{rates.tex}) plays
+no role in \eqref{eq:saddle-split} either — it is a numerical rescaling internal to the FFT-tree's
+$[u^N]$ coefficient extraction, not a second mathematical saddlepoint variable, so this is a
+\emph{one}-dimensional problem in $\gamma$, not a joint one in $(\theta,\gamma)$. The extraction is
+already performed, correctly, at every $z$ the evaluator is called at; consequently
+\[
+  L_S(z)\;:=\;\log M_S(z)
+\]
+is by construction the ordinary cumulant generating function of $S$ under the $[u^N]$-conditional
+law, and its first two derivatives at $\gamma$ are exactly $-E_\gamma[S]$ and $\mathrm{Var}_\gamma(S)$
+— no auxiliary machinery is needed beyond evaluating $L_S$ at $\gamma\pm h$ with the same
+coefficient-extraction routine \texttt{fill\_gamma} already calls, and differencing.
+\end{remark}
+
+\paragraph{Measurement.} $L_S(\gamma\pm h)$ was evaluated by calling \texttt{eval\_gammas\_fft\_thread}
+directly at three nearby real $z$ and subtracting off the closed-form $\log\sinck(z)$ term (recovered
+$\log M_S(z)$ via the same deconvolution as \S\ref{sec:deconv}), then central-differenced; the second
+derivative was stable to 4 significant figures by $h=10^{-3}$. Table~\ref{tab:saddle} compares the
+codebase's default gamma tolerance against a much tighter one, on the $N{=}1000$, $K{=}10$, $\lambda=0$
+demo instance.
+
+\begin{table}[h]
+\centering
+\caption{The saddlepoint quantities at two \texttt{eps\_gamma} tolerances.}
+\label{tab:saddle}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+ & \texttt{eps\_gamma}$=10^{-2}$ (default) & \texttt{eps\_gamma}$=10^{-6}$ \\
+\midrule
+$\gamma$ & $0.9164039$ & $0.9159373$ \\
+$\gamma W$ & $2802.19$ & $2800.76$ \\
+$E_\gamma[S]$ (measured) & $-1.371$ & $-1.0945$ \\
+$E_\gamma[U]$ (closed form, Eq.~\ref{eq:saddle-split}) & $1.092$ & $1.0918$ \\
+residual $E_\gamma[S]+E_\gamma[U]$ & $-0.279$ & $-0.00276$ \\
+implied offset from the exact minimizer & $\approx4\times10^{-4}$ & $\approx4\times10^{-6}$ \\
+$\sigma_S=\sqrt{\mathrm{Var}_\gamma(S)}$ & $26.23$ & $26.13$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The residual shrinks by two orders of magnitude when \texttt{eps\_gamma} tightens by four, consistent
+with \texttt{fill\_gamma}'s bracket search landing within a fraction of its stopping width of the true
+minimizer and the residual gradient being (offset)$\times\mathrm{Var}_\gamma(S)$. This is the
+decisive difference from $\theta$: $\gamma$ converges, on refinement, to a genuine root of
+\eqref{eq:saddle-split} — it is not a free numerical parameter, it is an under-converged solution of a
+well-posed equation, and the default tolerance is loose only because the series itself does not need
+$\gamma$ any more precise than that to converge fast.
+
+\subsection{What this buys the defective series}
+\label{sec:defective}
+
+Section~\ref{sec:deconv} noted $M_S(\gamma)\approx61p$, i.e.\ $\gamma$ nearly, but not exactly,
+minimizes $\log M_S$ alone: by \eqref{eq:saddle-split} the true $S$-only saddle sits at
+$\gamma+\Delta\gamma$ with $\Delta\gamma\approx4\times10^{-6}$ (tight column), utterly negligible
+next to $\gamma$ itself. So the ordinary saddlepoint density formula \citep{daniels1954},
+\begin{equation}
+  \label{eq:defective-pred}
+  f_S(0)\;\approx\;\frac{M_S(\gamma)}{\sigma_S\sqrt{2\pi}},\qquad p_{\mathrm{defect}}:=W f_S(0),
+\end{equation}
+can legitimately be evaluated at the \emph{same} $\gamma$ the code already computes, using
+$\sigma_S$ from Table~\ref{tab:saddle} rather than an independently re-optimized tilt. It describes
+the ``defective'' series obtained by dropping the $\sinck$ factor from every term before summing
+(equivalently, summing $M_S(z_n)$ recovered via the deconvolution of \S\ref{sec:deconv} directly) ---
+but, as \S\ref{sec:defective-drift} shows, only its \emph{bounded part}: that series does not
+converge at all.
+
+Both series were run on the demo instance ($4000$ terms, well past stagnation) at both
+tolerances in Table~\ref{tab:saddle}; the defective ratio is insensitive to \texttt{eps\_gamma}
+because it depends on $\Delta\gamma$ only at second order:
+\[
+  \frac{p_{\mathrm{defect}}}{p}\Big|_{\text{measured}} = 2855.4 \qquad\text{(both tolerances agree to 5 significant figures).}
+\]
+Two predictions can be compared against it. The crude one, $\gamma W\approx2800.8$, used earlier only
+because $\sinck(\gamma W)\approx1/(\gamma W)$, is $1.9\%$ low. The one built from
+\eqref{eq:defective-pred} using the properly computed $\sigma_S=26.13$ and $M_S(\gamma)=1.9669\times
+10^{-17}$ gives
+\[
+  \frac{p_{\mathrm{defect}}}{p}\Big|_{\text{predicted}}\;=\;\frac{W\,M_S(\gamma)}{\sigma_S\sqrt{2\pi}\,p}\;\approx\;2863.8,
+\]
+which is $0.3\%$ high — roughly six times tighter than the crude estimate. This is the payoff of
+computing $\sigma$ correctly: it does not change $p$ (the series is exact and needs no variance to
+compute it, as it always has), but it does turn ``the defective series looks related to a saddlepoint
+approximation'' into a checked, quantitative statement.
+
+\subsection{The defective series is slowly divergent, and its drift is the pmf}
+\label{sec:defective-drift}
+
+The measurement above is a plateau, not a limit. To see why, regularise $S$ with a smooth mean-zero
+kernel $\rho_\sigma$ (say $N(0,\sigma^2)$) instead of the uniform $U$. Since
+$M_{\rho_\sigma}(z)=e^{\sigma^2z^2/2}\to1$ pointwise in $z$ as $\sigma\to0$, every term of the
+$L$-term inversion sum for $f_{S+\rho_\sigma}(0)$ tends to the corresponding defective term, so for
+\emph{fixed} $L$,
+\[
+  \lim_{\sigma\to0}\ \Big[\text{$L$-term sum for } f_{S+\rho_\sigma}(0)\Big]\;=\;\text{defective}(L).
+\]
+But the exact (untruncated) smoothed density does \emph{not} converge as $\sigma\to0$: it diverges
+like $1/\sigma$, with $\sigma f_{S+\rho_\sigma}(0)\to P(S=0)/\sqrt{2\pi}$. Both statements hold, and
+they are consistent, because $L\to\infty$ and $\sigma\to0$ do not commute: $M_{\rho_\sigma}(\gamma+it)$
+has modulus $e^{\sigma^2(\gamma^2-t^2)/2}$, which tends to $1$ pointwise in $t$ but \emph{not}
+uniformly — it damps $|t|\gtrsim1/\sigma$, and that damping is exactly what makes the $L\to\infty$
+sum converge. Taking $\sigma\to0$ first discards it.
+
+What survives is a genuine divergence, and both pieces are available in closed form. Writing
+$M_S(z)=\sum_j p_j e^{-zs_j}$ over the atoms of $S$ and exchanging the two finite sums,
+\[
+  \text{defective}(L)
+  \;=\;\frac{T}{2\pi}\sum_{|k|\le L}\sum_j p_j e^{-(\gamma+ikT)s_j}
+  \;=\;\frac{T}{2\pi}\sum_j p_j e^{-\gamma s_j}\,D_L(Ts_j),
+\]
+where $D_L(\theta)=\sum_{|k|\le L}e^{-ik\theta}=\sin\!\big((L+\tfrac12)\theta\big)/\sin(\theta/2)$ is
+the Dirichlet kernel. The atom at the origin has $D_L(0)=2L+1$; every other atom keeps its kernel
+factor. Hence, exactly,
+\begin{equation}
+  \label{eq:defect-drift}
+  \text{defective}(L)\;=\;\underbrace{(2L+1)\,\frac{T}{2\pi}\,P(S=0)}_{\text{drift}}
+  \;+\;\underbrace{\frac{T}{2\pi}\sum_{j:\,s_j\ne0} p_j\,e^{-\gamma s_j}\,
+      \frac{\sin\!\big((L+\tfrac12)Ts_j\big)}{\sin(Ts_j/2)}}_{=:\,R(L)},
+\end{equation}
+verified against direct summation to $\sim\!10^{-14}$ relative. So $R(L)$ is precisely the $L$-th
+Dirichlet partial sum of the tilted measure with the atom at the origin deleted, which is why it
+tracks a density: for a measure as finely divided as this one it approaches the local tilted density
+at $0$, and that is the quantity \eqref{eq:defective-pred} estimates. It follows that
+\begin{equation}
+  \label{eq:cesaro}
+  P(S=0)\;=\;\lim_{L\to\infty}\frac{\text{defective}(L)}{(2L+1)\,T/(2\pi)} .
+\end{equation}
+Equation~\eqref{eq:cesaro} is Wiener's theorem (\S\ref{sec:wiener}) in its direct Ces\`aro-mean form
+rather than the mean-square form used there: the average of the Fourier--Stieltjes coefficients
+detects the atom. It is the saddlepoint formula \eqref{eq:defective-pred} that describes $R(L)$, not
+the series as a whole.
+
+Checked on a small atomic instance with an atom of mass $0.25$ at the origin ($W=40$,
+$T=\pi/40$): the defective value grows by exactly $5.000000$ between $L=200$ and $L=1000$, matching
+$1600\cdot(T/2\pi)\cdot0.25$ to the last digit, while $R(L)$ stays inside a band of width
+${\sim}0.1$; and the ratio in \eqref{eq:cesaro} runs $0.2666,\,0.2447,\,0.2502,\,0.2501,\,0.25002$ for
+$L=10^2\ldots3.2\times10^4$.
+
+\paragraph{Can $R(L)$ be corrected for?} Since \eqref{eq:defective-pred} predicts $R(L)$ to a
+measured $0.3\%$, subtracting it should expose the drift sooner, and it does --- but only linearly in
+the accuracy of the correction. The drift becomes visible once it exceeds the residual left after
+subtraction, so a correction good to relative accuracy $\eps$ requires
+\[
+  L\;\gtrsim\;\eps\cdot\frac{\text{plateau}}{2(T/2\pi)\,p_0}\;=\;\eps\cdot1.33\times10^{24}
+  \qquad\text{(demo instance).}
+\]
+\begin{center}
+\begin{tabular}{@{}llr@{}}
+\toprule
+correction & $\eps$ & $L$ needed \\
+\midrule
+none & $1$ & $1.3\times10^{24}$ \\
+saddlepoint \eqref{eq:defective-pred}, as measured & $3\times10^{-3}$ & $4.0\times10^{21}$ \\
+\emph{perfect} smooth correction & $2.9\times10^{-8}$ & $3.9\times10^{16}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+The last row is the obstruction, and it is not a deficiency of the saddlepoint expansion. $R(L)$ does
+not converge: it is an almost periodic function of $L$, each non-zero atom contributing an
+undamped oscillation $\sin\!\big((L+\frac12)Ts_j\big)$. On the demo instance the defective partial
+sum wanders between $9.154022245\times10^{-16}$ and $9.154022506\times10^{-16}$ over
+$L=3000\ldots19500$ --- a spread of $2.6\times10^{-23}$, or $2.9\times10^{-8}$ relative. That is real
+structure, not arithmetic: Kahan summation error here is ${\sim}10^{-32}$ absolute, and the drift
+accumulated across the same range is $1.1\times10^{-35}$, twelve orders of magnitude below the
+observed wander. No $L$-independent correction can track it, so $\eps$ cannot be pushed below
+${\sim}3\times10^{-8}$ however many orders of the Daniels expansion are computed (the higher
+cumulants are available from the same finite differences of $\log M_S$ that gave $\sigma_S$, but they
+sharpen the smooth trend, not the oscillation). Modelling the oscillation itself requires the
+locations of the neighbouring atoms --- which is the problem one was trying to avoid.
+
+\begin{remark}[Why the plateau is what gets measured in practice]
+On the demo instance the drift is real but invisible. There $p_0=2.10\times10^{-36}$ and
+$T/2\pi=1.64\times10^{-4}$, so each conjugate pair of terms adds $6.88\times10^{-40}$; over the
+$4000$ terms actually summed that accumulates to $2.8\times10^{-36}$, roughly twenty orders of
+magnitude below the measured defective value $9.15\times10^{-16}$. The drift only overtakes the
+plateau at
+\[
+  L\;\approx\;\frac{9.15\times10^{-16}}{6.88\times10^{-40}}\;\approx\;1.3\times10^{24}
+\]
+terms. That figure is not a coincidence: it is the same order as the term count required to resolve
+an individual atom of $S$ through a truncated inversion at all, since resolving structure at scale
+$\delta$ needs frequencies out to ${\sim}1/\delta$, i.e.\ $L\sim W/\delta$. The pmf is genuinely
+recoverable from the defective series via \eqref{eq:cesaro}, and the cost of reading it off is
+exactly the cost that made direct atom extraction infeasible.
+\end{remark}
+
+\begin{remark}[This does not tighten the bounds elsewhere in this document]
+The certified enclosure of \S\ref{sec:layers} and the Wiener estimate of \S\ref{sec:wiener} are
+unaffected by having a correct $\sigma_S$, for two different reasons. The certified width's scaling
+law, $\mathrm{width}/p\approx4\gamma W/(L+1)$, was derived by chaining
+$\Phi(0)/M_S(\gamma)\approx2W/(\sigma\sqrt{2\pi})$ with $M_S(\gamma)/p\approx\gamma\sigma\sqrt{2\pi}$;
+$\sigma$ cancels between the two, so the final bound only ever needed $\gamma$ and $W$, both already
+available at no extra cost. The Wiener estimate, meanwhile, is governed by $\Neff$, the participation
+ratio $(\sum_jw_j)^2/\sum_jw_j^2$ of the tilted measure's atoms — a collision statistic, not a spread
+statistic — and \S\ref{sec:lattice} is a standing counterexample to any hope that $\sigma$ could
+substitute for it: the chi-squared statistic's tilted measure has unremarkable variance, yet its
+$\Neff$ collapses toward $1$ because the lattice structure concentrates mass on few atoms \emph{within}
+that spread. $\sigma$'s value in this document is entirely in \S\ref{sec:defective}'s saddlepoint
+interpretation, not in any truncation-error bound.
+\end{remark}
+
+\section{The truncation error}
+\label{sec:trunc}
+
+Writing $c_n=\sinck(z_n)/2$, the error after keeping $|n|\le L$ is exactly
+\begin{equation}
+  \label{eq:err}
+  \mathrm{err}_L\;=\;\sum_{|n|>L}c_n\,M_S(z_n).
+\end{equation}
+Two structural facts follow.
+
+\paragraph{The $1/n$ floor is the box's edges.} $|c_n|\to 1/(2\pi n)$, because $f_U$ is an
+indicator and indicators have jumps. This is the ``Gibbs'' behaviour, but located correctly: it is a
+property of the smoothing kernel, fixed and known, not of the statistic. It also means
+$\sum_n|c_n|$ diverges, so \eqref{eq:err} converges only conditionally — cancellation in
+$M_S(z_n)$ is not a bonus, it is the entire mechanism.
+
+\paragraph{$\gamma$ postpones it.} $|c_n|$ is essentially \emph{flat} at $1/(2W\gamma)$ for
+$nT\lesssim\gamma$ and only enters the $1/n$ regime beyond $n^\star\approx\gamma/T=\gamma W/\pi$.
+For the standard demo instance $\gamma/T\approx891$, so the 1000-term default sits exactly at that
+crossover.
+
+\section{Wiener's theorem: why diffuse supports converge}
+\label{sec:wiener}
+
+The remaining question is how large $|M_S(z_n)|$ is beyond the truncation. For an atomic measure
+there is no decay in the worst case, but there is a sharp statement about the average:
+
+\begin{proposition}[Wiener; see \citealt{katznelson2004}]
+\label{prop:wiener}
+For a finite measure $\mu$ on the circle,
+$\displaystyle\lim_{L\to\infty}\frac1{2L+1}\sum_{|n|\le L}|\hat\mu(n)|^2=\sum_x|\mu(\{x\})|^2$.
+\end{proposition}
+
+\begin{remark}[This is not Parseval, and cannot be]
+\label{rem:notparseval}
+Proposition~\ref{prop:wiener} looks like an isometry statement, but Parseval does not apply to it,
+and the reason is exactly why the proposition is useful here. Parseval is an isometry
+$L^2(\mathbb T)\to\ell^2(\mathbb Z)$; an atomic measure has no $L^2$ density, and its transform is
+not in $\ell^2$ at all --- for $\mu=\delta_0$ one has $\hat\mu(n)\equiv1$, so
+$\sum_n|\hat\mu(n)|^2=\infty$. The Fourier--Stieltjes transform maps $\mathcal M(\mathbb T)$ into
+$\ell^\infty$, where no isometry is available. Since $S$ has finite support, $\nu$ is purely atomic,
+i.e.\ precisely the case Parseval cannot reach.
+
+The actual mechanism is diagonal detection rather than isometry. Writing the average as a double
+integral against the Dirichlet kernel,
+\[
+  \frac1{2L+1}\sum_{|n|\le L}|\hat\mu(n)|^2
+  =\iint \frac{D_L(x-y)}{2L+1}\,d\mu(x)\,d\bar\mu(y),
+  \qquad D_L(t)=\!\!\sum_{|n|\le L}\!\! e^{-int},
+\]
+and $D_L(t)/(2L+1)$ is bounded by $1$ and tends pointwise to $\mathbf 1_{\{t\equiv0\}}$. Dominated
+convergence against the finite product measure leaves the diagonal, whose product mass is
+$\sum_x|\mu(\{x\})|^2$. Finiteness of $\mu$ is what makes the domination legitimate.
+
+There \emph{is} an isometry hiding here, but between different objects: the left-hand side is the
+squared Besicovitch mean-square norm of the almost-periodic sequence $\hat\mu$, and the proposition
+says that norm equals the $\ell^2$ norm of the \emph{atomic part alone}. Absolutely continuous
+components contribute nothing (Riemann--Lebesgue), and so do singular continuous ones. That is the
+sharp version of the intuition driving this section: a perfectly diffuse measure would give
+$\Neff=\infty$ and perfect cancellation, and $\Neff$ measures how far a genuinely atomic $\nu$ sits
+from that idealisation.
+\end{remark}
+
+Applied to $\nu$, with atom weights $w_j=e^{-\gamma s_j}P(S=s_j)$, this says
+\[
+  \operatorname{RMS}_n|M_S(z_n)|\;=\;\sqrt{\textstyle\sum_j w_j^2}\;=\;\frac{M_S(\gamma)}{\sqrt{\Neff}},
+  \qquad
+  \Neff:=\frac{\big(\sum_j w_j\big)^2}{\sum_j w_j^2}.
+\]
+$\Neff$ is the participation ratio of the tilted measure — the rigorous form of ``a large support
+carrying small probabilities''. Combining with $\sum_{n>L}|c_n|^2$ and a random-phase model for the
+unseen coefficients gives the estimate implemented in \texttt{src/multinomial/error\_bound.h}:
+\begin{equation}
+  \label{eq:estimate}
+  \frac{|\mathrm{err}_L|}{p}\;\approx\;
+  \frac{\sqrt2\;\operatorname{RMS}|M_S|\;\sqrt{\sum_{n>L}|c_n|^2}}{p}.
+\end{equation}
+This is an \emph{estimate}, not a bound: it assumes the unseen coefficients keep behaving like the
+seen ones. Section~\ref{sec:lattice} is what happens when they do not.
+
+\begin{remark}[Measure the RMS in the trailing window]
+$\Neff$ must be estimated from the upper half of the computed range. At small $n$ the coefficients
+are still in their smooth initial decay, and averaging from $n=1$ measures that decay instead of
+the plateau, making the estimated $\Neff$ grow spuriously in proportion to the number of terms
+averaged. This was observed directly during implementation before being corrected.
+\end{remark}
+
+\section{Validation against exact enumeration}
+\label{sec:validation}
+
+For small instances \texttt{exhaustive\_bisection} gives $p$ exactly, so \eqref{eq:estimate} can be
+checked against the true error. Table~\ref{tab:oracle} shows $N=60$, LLR, 1000 terms, quad-precision
+evaluator (so that floating-point error is negligible against truncation error).
+
+\begin{table}[h]
+\centering
+\caption{Estimated vs.\ actual relative truncation error, $N=60$, $\lambda=0$, 1000 terms.}
+\label{tab:oracle}
+\begin{tabular}{@{}rlllrr@{}}
+\toprule
+$K$ & $p$ (exact) & $p$ (series) & actual rel.\ err & estimate & ratio \\
+\midrule
+3 & $2.33287\times10^{-1}$ & $2.33520\times10^{-1}$ & $1.00\times10^{-3}$ & $2.06\times10^{-3}$ & 2.06 \\
+4 & $2.80668\times10^{-1}$ & $2.80414\times10^{-1}$ & $9.06\times10^{-4}$ & $4.58\times10^{-4}$ & 0.51 \\
+5 & $3.45203\times10^{-1}$ & $3.45373\times10^{-1}$ & $4.95\times10^{-4}$ & $1.25\times10^{-4}$ & 0.25 \\
+6 & $4.18568\times10^{-1}$ & $4.18537\times10^{-1}$ & $7.60\times10^{-5}$ & $6.14\times10^{-5}$ & 0.81 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Across all 24 measured cases ($K=3..6$, $\lambda\in\{0,1\}$, $250/500/1000$ terms) the ratio
+estimate/actual lies in $[0.14,\,4.57]$. So \eqref{eq:estimate} is a reliable order-of-magnitude
+predictor, and it is \emph{not} conservative — it under-predicts in most rows. It should be used to
+decide how many terms to take, not to certify a result.
+
+\section{The chi-squared statistic fails, and the diagnostic says why}
+\label{sec:lattice}
+
+The reward functions in \texttt{src/rewards.h} are arithmetically very different:
+\[
+  \lambda=0:\ a_k(i)=-i\log\!\frac{i}{Np_k},
+  \qquad
+  \lambda=1:\ a_k(i)=-\tfrac12\Big(\frac{i^2}{Np_k}-i\Big).
+\]
+The chi-squared rewards are quadratic in $i$ with rationally related coefficients, so the attainable
+values of $S$ sit on (or very near) a lattice. A lattice support makes $\hat\nu$ periodic: the
+coefficients \emph{revive} to full size instead of continuing to cancel, and the mechanism of
+Section~\ref{sec:wiener} collapses. Table~\ref{tab:lambda} measures this directly at $N=1000$ with
+irrational $p_k\propto\sqrt{k+1}$.
+
+\begin{table}[h]
+\centering
+\caption{$N=1000$, irrational $p_k$, 1000 terms. ``revival'' is
+$\max_{n>L/4}|M_S(z_n)|/M_S(\gamma)$; a value near 1 means the coefficients never decayed.}
+\label{tab:lambda}
+\begin{tabular}{@{}rlrrrr@{}}
+\toprule
+$K$ & statistic & $p$ & $\Neff$ & revival & est.\ rel.\ err \\
+\midrule
+5  & LLR ($\lambda{=}0$)      & $1.36\times10^{-15}$ & $1.6\times10^{5}$  & 0.018 & $1.1\times10^{-3}$ \\
+5  & chi-sq ($\lambda{=}1$)   & $-3.45\times10^{-11}$ & $5.21$            & 0.835 & $2.96$ \\
+5  & pmf ($\lambda{=}$NaN)    & $1.12\times10^{-15}$ & $1.5\times10^{5}$  & 0.019 & $1.2\times10^{-3}$ \\
+\midrule
+10 & LLR                      & $3.21\times10^{-19}$ & $1.4\times10^{8}$  & 0.0046 & $3.3\times10^{-5}$ \\
+10 & chi-sq                   & $-9.41\times10^{-9}$ & $1.43$             & 0.980 & $0.74$ \\
+10 & pmf                      & $1.84\times10^{-19}$ & $1.8\times10^{8}$  & 0.0041 & $3.0\times10^{-5}$ \\
+\midrule
+15 & LLR                      & $1.98\times10^{-18}$ & $2.1\times10^{9}$  & 0.0051 & $7.0\times10^{-6}$ \\
+15 & chi-sq                   & $-8.32\times10^{-7}$ & $1.21$             & 0.982 & $0.32$ \\
+15 & pmf                      & $7.95\times10^{-19}$ & $2.4\times10^{9}$  & 0.0049 & $6.5\times10^{-6}$ \\
+\midrule
+20 & LLR                      & $2.02\times10^{-19}$ & $1.7\times10^{10}$ & 0.0053 & $2.3\times10^{-6}$ \\
+20 & chi-sq                   & $5.16\times10^{-6}$  & $1.08$             & 0.996 & $0.29$ \\
+20 & pmf                      & $5.18\times10^{-20}$ & $3.2\times10^{10}$ & 0.0046 & $1.7\times10^{-6}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three things are worth stating plainly.
+
+\begin{enumerate}
+\item \textbf{Chi-squared returns negative p-values} at $K=10$ and $15$, and a value at $K=20$ that
+  is nine orders of magnitude above the comparable LLR figure. These are not marginal accuracy
+  losses; the results are meaningless.
+\item \textbf{Growing the support makes chi-squared worse, not better.} $\Neff$ runs
+  $5.21\to1.43\to1.21\to1.08$ as $K$ goes $5\to20$: the tilted measure behaves as though it had
+  \emph{one} atom, no matter how many it actually has. Over the same range LLR improves by five
+  orders of magnitude, $1.6\times10^{5}\to1.7\times10^{10}$. This is the quantitative form of the
+  practical observation that motivated this note.
+\item \textbf{The revival column identifies the cause without knowing it in advance.} At
+  $\lambda=1$, $|M_S|$ returns to within $0.4\%$ of its maximum at high frequency; at $\lambda=0$ it
+  stays below $0.6\%$ of it. The diagnostic is cheap, requires no reference solution, and flags the
+  failure on any instance.
+\end{enumerate}
+
+\section{What the density view buys}
+\label{sec:density-gain}
+
+The reframing is not only presentational. Treating the object as a density supplies regularity that
+is simply invisible when one works with the tilted measure $\nu$, and that regularity is free,
+a~priori, and closed-form.
+
+\begin{proposition}[Free regularity]
+\label{prop:regularity}
+$f_Y(y)=\frac1W P\big(y-W\le S\le y\big)$ satisfies
+\[
+  \|f_Y\|_\infty\;\le\;\frac1W,
+  \qquad
+  \operatorname{TV}(f_Y)\;\le\;\frac2W .
+\]
+\end{proposition}
+\begin{proof}
+The first is immediate. For the second, as $y$ increases each atom of $S$ enters the window
+$[y-W,y]$ exactly once and leaves exactly once, contributing $P(S=s_j)/W$ to the variation on each
+occasion; summing gives $2/W$.
+\end{proof}
+
+Three consequences.
+
+\paragraph{A closed-form bound replaces the LP.} $\nu$ is a measure with no density and no bounded
+variation, so bounding $\int R_L\,d\nu$ required certifying diffuseness from the computed moments
+(Fejér-kernel interval bounds, or the full moment-problem LP). With
+Proposition~\ref{prop:regularity} the classical Dirichlet--Jordan rate for functions of bounded
+variation applies directly, and the a~priori bound can be written down rather than solved for:
+\[
+  \frac{|\mathrm{err}_L|}{p}\;\lesssim\;\frac{C}{L}\cdot\frac{\gamma W}{\pi}
+  \;=\;\frac{C}{L}\cdot\frac{\gamma}{T},
+\]
+the $\gamma/T$ being the same crossover frequency of Section~\ref{sec:trunc}. No optimisation, no
+certification step, no unverifiable extrapolation.
+
+\paragraph{The $1/n$ floor is the kernel's, and one of its two edges is negotiable.} This is the
+content of Remark~\ref{rem:kernel} below: only the jump at $y=0$ is forced by the estimand.
+
+\paragraph{The two regimes are unified.} Compare the a~priori bound above with the Wiener estimate
+\eqref{eq:estimate}. They differ by the cancellation factor $\sqrt{\Neff}$: the closed-form bound is
+what you get when the coefficients do \emph{not} cancel, and \eqref{eq:estimate} is what you get
+when they do. This is not an abstraction — it is exactly the $\lambda=0$ versus $\lambda=1$ split of
+Section~\ref{sec:lattice}. For chi-squared the measured $\Neff\to1$, cancellation is absent, and the
+pessimistic closed-form bound is not pessimistic at all: it is the truth, which is why that
+statistic returns garbage at term counts where LLR has ten correct digits. For LLR
+$\Neff\sim10^{10}$ and the same bound overstates the error by five orders of magnitude.
+
+So the density view does not improve the sharp worst-case order --- that remains $\Theta(1/L)$ for
+any framing, by Section~\ref{sec:layers} --- but it makes the worst case computable in closed form,
+explains when it is attained, and supplies $\Neff$ as the single measured number interpolating
+between the two.
+
+\section{The certified enclosure: LP duality with exact constants}
+\label{sec:layers}
+
+Everything so far has been an estimate. This section gives what can actually be \emph{certified}
+from the computed data together with the single structural fact $\nu\ge0$, with explicit constants
+and proofs.
+
+\subsection{The elementary enclosure}
+\label{sec:elementary}
+
+Everything Corollary~\ref{cor:enclosure} needs is contained in this subsection; the linear
+programming of \S\ref{sec:sharp} is context, not a prerequisite.
+
+Write $\mu_n:=M_S(z_n)$ for the computed data and $\nu^\star(ds)=e^{-\gamma s}P_S(ds)$ for the true
+tilted measure, so that $p=\int f\,d\nu^\star$ with $f(s)=e^{\gamma s}\mathbf 1_{s\le0}$.
+
+\begin{proposition}[Sandwich enclosure]
+\label{prop:sandwich}
+Let $P$ and $Q$ be trigonometric polynomials of degree $\le L$ with $Q\le f\le P$ pointwise on
+$[-W,W]$, and write $\lambda^P_n,\lambda^Q_n$ for their coefficients in the $e^{-inTs}$ basis. Then
+\[
+  \sum_{|n|\le L}\lambda^Q_n\mu_n\;\le\;p\;\le\;\sum_{|n|\le L}\lambda^P_n\mu_n .
+\]
+\end{proposition}
+\begin{proof}
+$\nu^\star\ge0$ and $P-f\ge0$ give $\int f\,d\nu^\star\le\int P\,d\nu^\star$. Expanding $P$ in its
+basis and using that the data are by definition $\nu^\star$'s own transform values,
+\[
+  \int P\,d\nu^\star=\sum_{|n|\le L}\lambda^P_n\!\int e^{-inTs}\,d\nu^\star(s)
+  =\sum_{|n|\le L}\lambda^P_n\mu_n .
+\]
+The minorant case is identical with the inequality reversed.
+\end{proof}
+
+Two things are worth making explicit, because they are the whole reason the enclosure is valid for
+\emph{every} $L$ rather than only asymptotically. First, positivity of $\nu^\star$ is used exactly
+once, and it is the only structural input. Second, no approximation is involved: the $\mu_n$ are not
+estimates of the true measure's moments, they \emph{are} the true measure's moments, so
+$\nu^\star$ automatically satisfies every constraint that the data impose. Truncating at $L$ discards
+information but never invalidates what remains --- which is why enlarging $L$ can only shrink the
+enclosure, never move it off $p$.
+\subsection{An explicit admissible pair}
+
+Selberg's construction supplies majorants and minorants of an \emph{interval indicator} with sharp
+$L^1$ gap \citep{vaaler1985,montgomery1994}: for any arc $I$ of $\mathbb R/\mathbb Z$ and any
+$L\ge0$ there are trigonometric polynomials of degree $\le L$ with
+\begin{equation}
+  \label{eq:selberg}
+  q_I\le\mathbf 1_I\le p_I,\qquad
+  \hat p_I(0)-\hat q_I(0)=\frac{2}{L+1},\qquad
+  \big|\hat p_I(n)-\hat{\mathbf 1}_I(n)\big|,\ \big|\hat q_I(n)-\hat{\mathbf 1}_I(n)\big|\le\frac1{L+1}.
+\end{equation}
+Our $f$ is not an indicator, and the crude sandwich $0\le f\le\mathbf 1_{[-W,0]}$ is far too lossy:
+it yields an upper bound near $\tfrac12\mu_0$, some thirty times $p$. The right move is the layer
+cake.
+
+\begin{proposition}[One-sided approximation of the tilted step]
+\label{prop:layercake}
+For $f(s)=e^{\gamma s}\mathbf 1_{s\le0}$ on the period $[-W,W)$ and any $L\ge0$ there exist
+trigonometric polynomials $Q\le f\le P$ of degree $\le L$ whose coefficients in the $e^{-inTs}$
+basis satisfy
+\[
+  \lambda^P_0-\lambda^Q_0=\frac{2}{L+1},
+  \qquad
+  \big|\lambda^P_n-\lambda^Q_n\big|\le\frac{2}{L+1}\quad(1\le|n|\le L).
+\]
+\end{proposition}
+\begin{proof}
+Since $0\le f\le1$, the layer-cake identity gives $f(s)=\int_0^1\mathbf 1_{I_t}(s)\,dt$ with
+$I_t=\{f>t\}=(\gamma^{-1}\log t,\,0]\cap[-W,0]$, which is an arc for every $t\in(0,1]$. Put
+$P:=\int_0^1 p_{I_t}\,dt$ and $Q:=\int_0^1 q_{I_t}\,dt$; both are trigonometric polynomials of
+degree $\le L$, and integrating $q_{I_t}\le\mathbf 1_{I_t}\le p_{I_t}$ over $t$ gives $Q\le f\le P$
+pointwise. For the coefficients,
+$\lambda^P_0-\lambda^Q_0=\int_0^1\big(\hat p_{I_t}(0)-\hat q_{I_t}(0)\big)dt=2/(L+1)$
+by \eqref{eq:selberg}, and for $n\ne0$ the triangle inequality through $\hat{\mathbf 1}_{I_t}(n)$
+gives $|\lambda^P_n-\lambda^Q_n|\le\int_0^1 2/(L+1)\,dt=2/(L+1)$.
+\end{proof}
+
+\begin{corollary}[Certified enclosure]
+\label{cor:enclosure}
+With $P,Q$ as above,
+\[
+  \sum_{|n|\le L}\lambda^Q_n\mu_n\;\le\;p\;\le\;\sum_{|n|\le L}\lambda^P_n\mu_n,
+  \qquad
+  \mathrm{width}=\sum_{|n|\le L}\big(\lambda^P_n-\lambda^Q_n\big)\mu_n
+  \;\le\;\frac{2}{L+1}\sum_{|n|\le L}|\mu_n| .
+\]
+The $n=0$ contribution to the width is exactly $2\mu_0/(L+1)=2M_S(\gamma)/(L+1)$.
+\end{corollary}
+
+\subsection{What the certificate is actually worth (measured)}
+\label{sec:worth}
+
+The width of Corollary~\ref{cor:enclosure} is a finite computation over data already in hand,
+because the Selberg pair's difference is explicit. Combining Vaaler's bound
+$|V_L-\psi|\le F_L/(2L+2)$ with $\mathbf 1_{[a,b]}=(b-a)+\psi(\cdot-b)-\psi(\cdot-a)$ gives
+\[
+  p_I-q_I=\frac{F_L(\cdot-a)+F_L(\cdot-b)}{L+1},
+\]
+$F_L$ being the Fej\'er kernel of mean $1$. Averaging over the layer cake of
+Proposition~\ref{prop:layercake} (whose arcs are $I_t=(\gamma^{-1}\log t,0]$, so $b\equiv0$) yields
+a closed form for the width in terms of the computed coefficients alone:
+\begin{equation}
+  \label{eq:widthformula}
+  \mathrm{width}=\frac{1}{L+1}\Big(\Phi(0)+\int_0^1\!\Phi\big(a(t)\big)\,dt\Big),
+  \qquad
+  \Phi(c):=\!\!\sum_{|n|\le L}\!\!\Big(1-\tfrac{|n|}{L+1}\Big)e^{inTc}\mu_n
+  =\int F_L(s-c)\,d\nu(s),
+\end{equation}
+with $a(t)=\max(-W,\gamma^{-1}\log t)$. Note $\Phi\ge0$ pointwise, since $F_L\ge0$ and $\nu\ge0$ ---
+a further free self-check, and one that caught an uninitialised-buffer bug while this was being
+measured. Table~\ref{tab:width} evaluates \eqref{eq:widthformula} on the demo instance.
+
+\begin{table}[h]
+\centering
+\caption{Measured Selberg width, $N=1000$, $K=10$, $\lambda=0$ (double-double evaluator).}
+\label{tab:width}
+\begin{tabular}{@{}rrrr@{}}
+\toprule
+terms & width$/p$ & $n{=}0$ term$/p$ & $\Phi(0)/M_S(\gamma)$ \\
+\midrule
+256  & 39.6 & 0.477 & 83.4 \\
+512  & 21.0 & 0.239 & 88.2 \\
+1024 & 10.8 & 0.120 & 90.6 \\
+2048 & 5.45 & 0.060 & 91.8 \\
+4096 & 2.74 & 0.030 & 92.4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The verdict is unambiguous, and it goes against the optimistic reading: \textbf{the true signed
+width sits at roughly $90$ times its $n=0$ leading term}, i.e.\ about $10.8\,p$ at $L=1024$. The
+certificate does not merely fail to be tight, it fails to establish that $p>0$. An earlier draft of
+this note quoted the leading term, $2M_S(\gamma)/((L+1)p)\approx122/(L+1)\approx12\%$, as the best
+case; the best case is not attained, and the crude absolute-value bound of order $12\,p$ was the
+accurate prediction.
+
+The reason is a scale mismatch that \eqref{eq:widthformula} makes explicit. $\Phi(0)=\int F_L\,d\nu
+\approx 2W\rho_\nu(0)$ is a \emph{local density} quantity, whereas $M_S(\gamma)$ is a \emph{total
+mass}; their ratio is therefore
+\[
+  \frac{\Phi(0)}{M_S(\gamma)}\;\approx\;\frac{2W}{\sqrt{2\pi}\,\sigma}\;=\;90.4
+  \qquad\text{against } 90.6 \text{ measured.}
+\]
+Propagating this through \eqref{eq:widthformula} with the saddlepoint gap
+$M_S(\gamma)/p\approx\gamma\sigma\sqrt{2\pi}$ collapses everything to
+\begin{equation}
+  \label{eq:widthscaling}
+  \frac{\mathrm{width}}{p}\;\approx\;\frac{4\gamma W}{L+1}\;\approx\;\frac{11800}{L+1},
+\end{equation}
+predicting $11.5$ at $L=1024$ against $10.8$ measured, with the $1/L$ decay visible in every row.
+
+Read as a requirement, \eqref{eq:widthscaling} says the certificate needs $L\gtrsim4\gamma W\approx
+1.1\times10^4$ merely to be non-vacuous and $L\sim10^6$ for one percent, while the series it is
+certifying has converged by $n\sim1/(T\sigma)\approx36$. The enclosure therefore costs some three
+hundred times more terms than the computation it validates. This is not a defect of Selberg's
+construction --- the same $2W/(\sqrt{2\pi}\sigma)$ mismatch afflicts any bound built from the
+moments alone, and \S\ref{sec:sharp}'s LP can only improve the constant, not the $4\gamma W/L$ law.
+Whether it is worth paying is an application decision; on smaller instances it can be, since at
+$N=60$, $K=5$ the same computation gives a width of $7\%$ at $4096$ terms, the tilt gap there being
+$M_S(\gamma)/p=3.9$ rather than $61$.
+
+\subsection{How far from sharp: the moment LP}
+\label{sec:sharp}
+
+Corollary~\ref{cor:enclosure} fixes \emph{one} admissible pair. Optimising over all of them is a
+linear program, and its value is the exact information content of $L$ moments. With
+$R_\lambda(s)=\sum_{|n|\le L}\lambda_n e^{-inTs}$, the sharp enclosure is
+\begin{equation}
+  \label{eq:primal}
+  p^{\pm}\;=\;\genfrac{}{}{0pt}{}{\sup}{\inf}\ \Big\{\ \int f\,d\nu\ :\ \nu\in\mathcal M_+([-W,W]),\ \
+  \int e^{-inTs}\,d\nu(s)=\mu_n,\ |n|\le L\ \Big\},
+\end{equation}
+whose duals are exactly the one-sided approximation problems
+\begin{equation}
+  \label{eq:dual}
+  p^{+}=\inf_{R_\lambda\,\ge\,f}\ \sum_{|n|\le L}\lambda_n\mu_n,
+  \qquad
+  p^{-}=\sup_{R_\lambda\,\le\,f}\ \sum_{|n|\le L}\lambda_n\mu_n ,
+\end{equation}
+weak duality between them being Proposition~\ref{prop:sandwich} verbatim. Strong duality holds by
+standard semi-infinite linear programming: $\mu_0$ fixes the total mass, so the feasible set is
+weak-$*$ compact, and $f$ is bounded and Borel.
+
+\begin{proposition}[Validity and monotonicity in $L$]
+\label{prop:nested}
+$p\in[p^-_L,p^+_L]$ for every $L$, and the intervals are nested:
+$p^-_L\le p^-_{L+1}\le p\le p^+_{L+1}\le p^+_L$.
+\end{proposition}
+\begin{proof}
+The true measure $\nu^\star$ is itself feasible in \eqref{eq:primal} --- it is nonnegative, it is
+supported in $[-W,W]$, and its transform values at $|n|\le L$ are precisely the data $\mu_n$ --- so
+$p=\int f\,d\nu^\star$ is the objective evaluated at a feasible point, hence lies between the
+infimum and the supremum. Raising $L$ to $L+1$ appends two equality constraints, shrinking the
+feasible set; a supremum over a smaller set cannot increase and an infimum cannot decrease.
+\end{proof}
+
+This is worth stating separately because it is the only reason the enclosure is trustworthy at
+\emph{every} truncation rather than merely in the limit, and the argument is not asymptotic: the
+$\mu_n$ are not estimates of $\nu^\star$'s moments, they are those moments, so no amount of
+truncation can put $\nu^\star$ outside the feasible set. (In floating point the $\mu_n$ carry the
+evaluator's own error, so the enclosure is certified modulo that --- which is exactly what the
+positivity ceiling \eqref{eq:ceiling} is there to police.)
+
+Computing \eqref{eq:primal} is a semidefinite program, via the following classical
+parametrisation of the nonnegativity constraint.
+
+\begin{proposition}[Riesz--Fej\'er]
+\label{prop:rieszfejer}
+Let $T(\theta)=\sum_{|n|\le L}c_ne^{in\theta}$ be real-valued with $T\ge0$ for all real $\theta$.
+Then there is an \emph{algebraic} polynomial $q(z)=\sum_{k=0}^{L}a_kz^k$ in the complex variable $z$
+with
+\[
+  T(\theta)\;=\;\big|q(e^{i\theta})\big|^2\qquad\text{for all }\theta .
+\]
+\end{proposition}
+
+The apparent type mismatch --- a periodic $T$ equal to a polynomial --- dissolves once one notes that
+$q$ is \emph{not} evaluated at $\theta$. It is evaluated at $z=e^{i\theta}$, i.e.\ restricted to the
+unit circle, and $\theta\mapsto q(e^{i\theta})$ is manifestly $2\pi$-periodic. The right way to see
+the statement is that a trigonometric polynomial of degree $L$ \emph{is} the restriction to
+$|z|=1$ of the Laurent polynomial $\sum_{|n|\le L}c_nz^n$; multiplying by $z^{L}$ clears the poles
+and leaves an ordinary polynomial of degree $2L$, so trigonometric and algebraic polynomials are two
+readings of one object, related by $z=e^{i\theta}$. Reality of $T$ forces $c_{-n}=\overline{c_n}$,
+which makes the roots of that degree-$2L$ polynomial come in pairs $\{z_j,\,1/\overline{z_j}\}$, and
+$T\ge0$ forces every root actually on the circle to have even multiplicity; collecting one root from
+each pair (all inside the closed disc) and normalising gives $q$.
+
+For the program, expanding $|q(e^{i\theta})|^2=\sum_{j,k}a_j\overline{a_k}e^{i(j-k)\theta}$ shows
+$c_n=\sum_{j-k=n}a_j\overline{a_k}$, which is the statement that the coefficient vector is read off
+the diagonals of the rank-one positive semidefinite matrix $G=aa^{*}$. Relaxing ``rank one'' to
+``positive semidefinite'' costs nothing --- a sum of squares is still nonnegative, and
+Proposition~\ref{prop:rieszfejer} says one square already suffices --- so
+\[
+  T\ge0 \text{ on the circle}
+  \iff
+  \exists\, G\succeq0 \text{ in } \mathbb C^{(L+1)\times(L+1)}
+  \ \text{ with }\ c_n=\!\!\sum_{j-k=n}\!\! G_{jk},
+\]
+an exact linear matrix inequality in the unknowns $\lambda$. Since $f$ is not itself a trigonometric
+polynomial, the constraint $R_\lambda-f\ge0$ is imposed arcwise: either reduce to indicators by the
+layer cake above, or discretise $s$ and control the grid error by a Bernstein inequality on
+$R_\lambda$.
+
+\subsection{Using an enclosure}
+
+Given any certified $[p^-,p^+]$, the series value $P_L=\sum_{|n|\le L}c_n\mu_n$ acquires a rigorous
+error bar,
+\[
+  |p-P_L|\;\le\;\max\big(p^+-P_L,\ P_L-p^-\big),
+\]
+with no appeal to the random-phase model of Section~\ref{sec:wiener}.
+
+\subsection{What remains uncertifiable}
+
+Estimate \eqref{eq:estimate} is valid exactly when the unseen coefficients keep cancelling, and the
+revival statistic of Section~\ref{sec:lattice} is a direct, cheap test of that premise on the
+computed range. Extending it beyond $L$ would need quantitative non-resonance --- a Diophantine
+statement about the reward values, plausible for the logarithmic ($\lambda=0$) rewards and provably
+false for the lattice-valued ($\lambda=1$) ones. The moment-problem enclosure above is the part that
+needs no such hypothesis.
+
+\begin{remark}[The far edge of the kernel is \emph{not} free]
+\label{rem:kernel}
+Proposition~\ref{prop:identity} is a statement about $f_U$ at a single point, but the trapezoid rule
+returns the periodised density $\sum_m f_Y(2mW)$, so what the constraint really binds is the
+periodised kernel $f_U^{\mathrm{per}}(y)=\sum_m f_U(y+2mW)$. Correctly stated, exactness requires
+\[
+  f_U^{\mathrm{per}}(y)=\tfrac1W \ \text{ on } [0,-s_{\min}],
+  \qquad
+  f_U^{\mathrm{per}}(y)=0 \ \text{ on } [-s_{\max},0),
+\]
+and those two arcs occupy $s_{\max}-s_{\min}$ of the period $2W$. The room left over is therefore
+$2W-(s_{\max}-s_{\min})$, which \emph{vanishes} in the symmetric case
+$s_{\max}=-s_{\min}=W$ --- the usual one. Extending the box to the right by $B>0$ pushes
+$\operatorname{supp}f_Y$ out to $s_{\max}-s_{\min}+B>2W$, and the image at $y=2W$ folds back onto
+$y=0$, corrupting exactly the value being computed. So the earlier suggestion that the far edge
+could be smoothed for free was wrong: it is free only to the extent the support is asymmetric, and
+enlarging $W$ to make room shrinks $T=\pi/W$ and costs truncation accuracy directly.
+\end{remark}
+
+\begin{thebibliography}{9}
+
+\bibitem[Abate and Whitt(1992)]{abatewhitt1992}
+J.~Abate and W.~Whitt.
+\newblock The Fourier-series method for inverting transforms of probability distributions.
+\newblock \emph{Queueing Systems}, 10:5--88, 1992. DOI 10.1007/BF01158520.
+
+\bibitem[Daniels(1954)]{daniels1954}
+H.~E.~Daniels.
+\newblock Saddlepoint approximations in statistics.
+\newblock \emph{Annals of Mathematical Statistics}, 25(4):631--650, 1954.
+
+\bibitem[Erd\H{o}s and Tur\'an(1948)]{erdosturan1948}
+P.~Erd\H{o}s and P.~Tur\'an.
+\newblock On a problem in the theory of uniform distribution, I.
+\newblock \emph{Indagationes Mathematicae}, 10:370--378, 1948.
+
+\bibitem[Katznelson(2004)]{katznelson2004}
+Y.~Katznelson.
+\newblock \emph{An Introduction to Harmonic Analysis}, 3rd edition.
+\newblock Cambridge University Press, 2004. (Wiener's theorem on the atomic part of a measure.)
+
+\bibitem[Lugannani and Rice(1980)]{lugannanirice1980}
+R.~Lugannani and S.~Rice.
+\newblock Saddle point approximation for the distribution of the sum of independent random
+variables.
+\newblock \emph{Advances in Applied Probability}, 12(2):475--490, 1980.
+
+\bibitem[Montgomery(1994)]{montgomery1994}
+H.~L.~Montgomery.
+\newblock \emph{Ten Lectures on the Interface Between Analytic Number Theory and Harmonic
+Analysis}.
+\newblock CBMS Regional Conference Series in Mathematics 84. American Mathematical Society, 1994.
+
+\bibitem[Vaaler(1985)]{vaaler1985}
+J.~D.~Vaaler.
+\newblock Some extremal functions in Fourier analysis.
+\newblock \emph{Bulletin of the American Mathematical Society (New Series)}, 12(2):183--215, 1985.
+
+\end{thebibliography}
+
+\end{document}

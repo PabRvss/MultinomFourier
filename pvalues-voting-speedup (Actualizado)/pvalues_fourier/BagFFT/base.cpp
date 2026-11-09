@@ -1,0 +1,19 @@
+#include <iostream>
+#include <iomanip>
+#include <ctime>
+#include <cstdio>
+
+#include "utils.cpp"
+#include "poiss_prob.cpp"
+#include "entropy.cpp"
+#include "convolution.cpp"
+#include "HS-array-shift.cpp"
+#include "HS-list-shift.cpp"
+#include "LD.cpp"
+#include "fft.cpp"
+#include "minimize.cpp"
+#include "llr_score.cpp"
+#include "theta_fns.cpp"
+#include "bagFFT-array.cpp"
+#include "entropy-combined.cpp"
+#include "bagFFT-api.cpp"

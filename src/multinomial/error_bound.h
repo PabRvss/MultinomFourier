@@ -176,20 +176,3 @@ static double err_rel_estimate(const err_diag_t* restrict d, const mf_quad_t p, 
     const double nu0_over_p = (double)(cabsq(d->nu0)/fabsq(p));
     return M_SQRT2*rms_ratio*nu0_over_p*sqrt(err_tail_c2(d->n_last, gamma, T));
 }
-
-// ---------------------------------------------------------------------------------------------
-// The certified Selberg enclosure width.
-//
-// Selberg's majorant/minorant of an interval indicator 1_[a,b] differ by exactly a pair of Fejer
-// kernels sited at the two endpoints (this follows from Vaaler's |V_N - psi| <= F_N/(2N+2) and the
-// identity 1_[a,b] = (b-a) + psi(x-b) - psi(x-a)):
-//
-//     p_I - q_I = ( F_N(x-a) + F_N(x-b) ) / (N+1),      F_N = Fejer kernel, mean 1, F_N >= 0.
-//
-// Our test function f(s) = exp(gamma*s)*1{s<=0} is not an indicator, but it is a layer cake of
-// them: f = INTEGRAL_0^1 1_{I_t} dt with I_t = (log(t)/gamma, 0] clipped to [-W, 0]. Averaging
-// Selberg's pair over t gives an admissible pair for f, so the certified enclosure width is
-//
-//     width = INTEGRAL (P - Q) dnu
-//           = ( Phi(0) + INTEGRAL_0^1 Phi(a(t)) dt ) / (N+1),      a(t) = max(-W, log(t)/gamma),
-
