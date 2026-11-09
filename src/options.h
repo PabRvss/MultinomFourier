@@ -25,7 +25,8 @@ typedef struct {
     int_t poisson;          // 1 = Poissonised Cauchy-integral evaluator, 0 = polynomial convolution
     int_t fast_interval;    // 1 = O(K) closed form / O(K log K) GreedyModeFind, 0 = O(K*N^2) DP
     int_t fast_exhaustive;  // 1 = per-node bounds pruning, 0 = bisection in last two categories
-    int_t extrapolate;      // 0 = off, 1 = report extrapolated, 2 = stop on error estimate
+    int_t extrapolate;      // 0 = off, 1 = report extrapolated, 2 = stop on error estimate,
+                            // 3 = also report the median of the deep table (default)
 
     int_t threads;
     int_t vecs_per_thread;
@@ -52,7 +53,7 @@ static void set_options_default(options_t* options) {
     options->poisson = 1;
     options->fast_interval = 1;
     options->fast_exhaustive = 1;
-    options->extrapolate = 2;
+    options->extrapolate = 3;
 
     options->gamma_precision = FFT_REAL;
     options->fft_precision = FFT_REAL;

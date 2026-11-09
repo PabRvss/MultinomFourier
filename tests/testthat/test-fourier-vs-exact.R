@@ -84,8 +84,20 @@ test_that("Multi-threading yields identical results", {
   fit_1th <- pval_fourier(x, p, n_threads = 1)
   fit_2th <- pval_fourier(x, p, n_threads = 2)
 
-  expect_equal(fit_1th$pval, fit_2th$pval, tolerance = 1e-8)
+  # The stopping point, the statistic and the tilt are thread-independent.
   expect_equal(fit_1th$stat_value, fit_2th$stat_value, tolerance = 1e-8)
   expect_equal(fit_1th$n_terms, fit_2th$n_terms)
   expect_equal(fit_1th$gamma, fit_2th$gamma, tolerance = 1e-8)
+
+  # With extrapolate = 3 (the default) the reported value is a median of the deep
+  # extrapolation table over the final window. That table holds one entry per chunk
+  # of terms, and the chunk size is proportional to n_threads, so the entries being
+  # averaged are not the same ones. The two values therefore agree only to within
+  # the extrapolation error, not to round-off.
+  expect_equal(fit_1th$pval, fit_2th$pval, tolerance = 1e-3)
+
+  # With extrapolate = 2 the reported value is thread-independent to round-off.
+  fit_1th_e2 <- pval_fourier(x, p, n_threads = 1, extrapolate = 2)
+  fit_2th_e2 <- pval_fourier(x, p, n_threads = 2, extrapolate = 2)
+  expect_equal(fit_1th_e2$pval, fit_2th_e2$pval, tolerance = 1e-8)
 })

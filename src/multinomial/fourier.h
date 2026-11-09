@@ -359,6 +359,15 @@ static void fourier_pool_free(fourier_pool_t* pool) {
 // comment where they are used, in series() below.
 #define STOP_EPSALG_DEPTH 8
 #define STOP_WINDOW_FRAC 0.5
+// extrapolate >= 3: fraction of the lagged window over which the median of the deep table is taken.
+// The floor of the window is B, just like in the stopping condition.
+#define DEEP_WINDOW_FRAC 0.25
+
+// extrapolate >= 3: comparator for the median of the deep table.
+static int deep_cmp(const void* a, const void* b) {
+    const double x = *(const double*)a, y = *(const double*)b;
+    return (x > y) - (x < y);
+}
 
 static void series(multinomial* mult, multinomial_result* mult_res, options_t* options) {
     const int_t verbose = options->verbose;
@@ -449,6 +458,13 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
     double last_smooth = NAN;       // most recent smoothed statistic, whether or not it was stable
     int_t last_smooth_iter = -1;
     double last_rel_spread = NAN;   // its trailing-window relative spread, at the same iter
+    // extrapolate >= 3: history of the deep table, to take its median at the end.
+    double* deep_arr = NULL;
+    double deep_med = NAN;
+    if (options->extrapolate >= 3) {
+        deep_arr = malloc(max_chunks*step*sizeof(double));
+        for (int_t q=0; q<max_chunks*step; q++) deep_arr[q] = NAN;
+    }
     if (options->extrapolate >= 2) {
         smooth_arr = malloc(max_chunks*step*sizeof(double));
         dqmax = malloc(max_chunks*step*sizeof(int_t));
@@ -525,6 +541,7 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
                     const double ps = (double)scalbnq(p, -(int)eps_shift);
                     if (isfinite(ps)) {
                         epsalg_add(&eps, ps, EPSALG_LIMEXP);  // never poison the table
+                        if (deep_arr && epsalg_ready(&eps)) deep_arr[iter] = eps.result;
 
                         if (options->extrapolate >= 2) {
                             epsalg_add(&eps_stop, ps, STOP_EPSALG_DEPTH);
@@ -609,7 +626,29 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
 
     finish:
 
-    if (eps_have && options->extrapolate >= 2 && last_smooth_iter >= 0) {
+    if (deep_arr) {  // extrapolate >= 3: median of the deep table in the lagged window
+        int_t w = (int_t)(DEEP_WINDOW_FRAC*(double)(iter+1));
+        if (w < B) w = B;  // same floor as the stopping condition
+        if (w > iter+1) w = iter+1;
+        double* tmp = malloc(w*sizeof(double));
+        int_t m = 0;
+        for (int_t q=iter-w+1; q<=iter; q++) if (isfinite(deep_arr[q])) tmp[m++] = deep_arr[q];
+        if (m > 0) {
+            qsort(tmp, m, sizeof(double), deep_cmp);
+            deep_med = (tmp[(m-1)/2] + tmp[m/2])/2;
+        }
+        free(tmp);
+        free(deep_arr);
+        deep_arr = NULL;
+    }
+
+    if (eps_have && options->extrapolate >= 3 && isfinite(deep_med)) {
+        // The reported value is the median of the deep table over the lagged window. The stopping
+        // decision (shallow table, median of five, window) does not change, and neither does
+        // err_rel_ext, which still measures the dispersion of that shallow table.
+        p = scalbnq((mf_quad_t)deep_med, (int)eps_shift);
+    }
+    else if (eps_have && options->extrapolate >= 2 && last_smooth_iter >= 0) {
         // Prefer the same robust (shallow-table, median-smoothed) statistic that justified
         // stopping over the deep depth-50 table below: that table can itself land on a bad
         // extrapolate at an unlucky iteration (see extrapolate.h and latex/poisson.tex), and

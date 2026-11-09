@@ -91,8 +91,9 @@ information while running. Default \code{FALSE}.}
 \item{...}{Advanced options passed to the C engine, for example
 \code{print_freq} (how often partial sums are printed when
 \code{verbose = TRUE}; default 100) or \code{extrapolate} (0: no
-extrapolation; 1: report the extrapolated value; 2: also stop on it, the
-default). Unknown names produce a warning.}
+extrapolation; 1: report the extrapolated value; 2: also stop on it;
+3: report the median of the deep extrapolation table over the final
+window, the default). Unknown names produce a warning.}
 }
 \value{
 An object of class \code{"multinomfourier"}, as described in

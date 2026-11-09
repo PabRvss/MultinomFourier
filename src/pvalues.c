@@ -225,7 +225,7 @@ SEXP c_run_multfourier(SEXP r_x, SEXP r_p, SEXP r_opts) {
     options.gamma_newton = get_opt_bool(r_opts, "gamma_newton", 1);
     options.fast_interval = get_opt_bool(r_opts, "fast_interval", 1);
     options.fast_exhaustive = get_opt_bool(r_opts, "fast_exhaustive", 1);
-    options.extrapolate = get_opt_int(r_opts, "extrapolate", 2);
+    options.extrapolate = get_opt_int(r_opts, "extrapolate", 3);
 
     options.fft_precision = FFT_REAL;
     options.gamma_precision = FFT_REAL;
