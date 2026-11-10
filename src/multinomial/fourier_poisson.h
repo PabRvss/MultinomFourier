@@ -76,7 +76,7 @@ typedef struct {
     double* restrict root_im;
     double* restrict out_re;    // Q: exp(+2 pi i q N/Q)/Q, the coefficient extractor
     double* restrict out_im;
-    mf_quad_t resN_exp;            // exp(lgac[N] + sum_k scale_k - nu*N)
+    mf_quad_t resN_rel;            // exp(lgac[N] + sum_k scale_k - nu*N - log_scale)
 } poisson_plan_t;
 
 // The saddlepoint radius. After fill_cells log_prob already carries the gamma tilt, so gamma_moments
@@ -201,7 +201,7 @@ static poisson_plan_t* build_poisson_plan(const multinomial* restrict mult, cons
 
         for (int_t i=0; i<=N; i++) plan->weight[index_k+i] = EXP(global[index_k+i].log_prob + nu*(real_t)i - scale);
     }
-    plan->resN_exp = expq((mf_quad_t)lgac[N] + (mf_quad_t)sum_scale - (mf_quad_t)nu*(mf_quad_t)N);
+    plan->resN_rel = expq((mf_quad_t)lgac[N] + (mf_quad_t)sum_scale - (mf_quad_t)nu*(mf_quad_t)N - (mf_quad_t)mult->log_scale);
 
     // Q. The product has degree K*N, so an alias N + l*Q needs l >= 1 with Q <= (K-1)*N, or l <= -1
     // with Q <= N: once Q exceeds both, no total count can alias onto N and doubling stops being useful.
@@ -394,14 +394,14 @@ static void* eval_fourier_poisson_thread(void* args_void) {
             const complex_t s2 = s2_re + I*(real_t)m*M_PI;
             complex_t sinc = (1-EXPC(-s2))/s2;
             if ((m == 0) && (ABS(s2_re)<=EPS)) sinc = 1 - s2*(0.5 - s2/6);
-            res_arr[m] = plan->resN_exp*(unit*sinc);
+            res_arr[m] = plan->resN_rel*(unit*sinc);
         }
 #else
         const complex_t s2 = s2_re + I*(real_t)n*M_PI;
         complex_t sinc = (1-EXPC(-s2))/s2;
         if ((n == 0) && (ABS(s2_re)<=EPS)) sinc = 1 - s2*(0.5 - s2/6);
         const complex_t unit = s_re + I*s_im;
-        res_arr[n] = plan->resN_exp*(unit*sinc);
+        res_arr[n] = plan->resN_rel*(unit*sinc);
 #endif
         phase_advance(args, cells);
     }

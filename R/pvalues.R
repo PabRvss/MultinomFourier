@@ -20,6 +20,7 @@ build_multfourier_s3 <- function(raw, x, p, elapsed, requested_method, stat_labe
   # 2: Maximum number of terms reached
   # 3: Could not solve the optimization of gamma
   # 4: Numerical instability detected (magnitude explosion)
+  # 5: First term of the series underflowed
   status_id <- as.integer(raw$status)
   status_msg <- switch(
     as.character(status_id),
@@ -28,6 +29,7 @@ build_multfourier_s3 <- function(raw, x, p, elapsed, requested_method, stat_labe
     "2" = "Maximum number of terms reached",
     "3" = "Could not solve the optimization of gamma",
     "4" = "Numerical instability detected (magnitude explosion)",
+    "5" = "First term of the series underflowed; no p-value",
     "Unknown status"
   )
   
@@ -331,7 +333,10 @@ resolve_n_threads <- function(n_threads) {
 #' positive, whenever the true \pvalue{} falls below \eqn{5 \times 10^{-324}}, \code{pval}
 #' is returned as \code{NA} and an informative console note is issued. The exact
 #' magnitude is retained in \code{log_pval}, which can be exported or evaluated via
-#' arbitrary-precision software (e.g. \code{exp(log_pval)}).
+#' arbitrary-precision software (e.g. \code{exp(log_pval)}). The series is summed
+#' relative to a common magnitude and the \pvalue{} is assembled in logarithms, so
+#' \code{log_pval} stays finite far below the range of the floating-point type, on
+#' every platform (it does not need \code{__float128}).
 #'
 #' @return An object of class \code{"multinomfourier"}: a list with components
 #' \describe{
@@ -363,7 +368,9 @@ resolve_n_threads <- function(n_threads) {
 #'     \code{"Converged"}); \code{1}: \code{max_time} was reached; \code{2}:
 #'     \code{max_terms} was reached without meeting the stopping rule, so
 #'     \code{pval} is unreliable; \code{3}: the search for \code{gamma} failed;
-#'     \code{4}: numerical overflow in the evaluation of the terms. With a status
+#'     \code{4}: numerical overflow in the evaluation of the terms; \code{5}: the
+#'     first term of the series underflowed, so no \pvalue{} is returned
+#'     (\code{n_terms} is 0). With a status
 #'     other than 0, \code{pval} is the last value reached or \code{NA}.}
 #'   \item{message}{Human-readable version of \code{status}.}
 #'   \item{err_rel_ext}{Relative spread of the smoothed extrapolated values over

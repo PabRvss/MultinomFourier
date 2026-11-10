@@ -96,7 +96,7 @@ typedef struct {
     int_t N;
     int_t calls_per_round;   // number of merge call-sites in one category round (same every k)
     merge_t* restrict factors;  // K * calls_per_round, in call order
-    mf_quad_t resN_exp;         // exp(A[N].log_mod - l_prev*N + lgac[N]) after all K rounds
+    mf_quad_t resN_rel;         // exp(A[N].log_mod - l_prev*N + lgac[N] - log_scale) after all K rounds
 } fourier_fft_plan_t;
 
 static int_t fourier_fft_count_calls(const int_t M) {
@@ -225,8 +225,7 @@ static fourier_fft_plan_t* build_fourier_fft_plan(const multinomial* restrict mu
         C = temp;
     }
 
-    // plan->resN_exp = exp((double)A[N] - (double)(l_prev*(real_t)N) + lgac[N]);
-    plan->resN_exp = expq(A[N] - l_prev*(real_t)N + lgac[N]);
+    plan->resN_rel = expq(A[N] - l_prev*(real_t)N + lgac[N] - mult->log_scale);
 
     free(l_rate);
     free(A);
@@ -365,7 +364,7 @@ static void* eval_fourier_fft_precompute_thread(void* args_void) {
             const complex_t s2 = s2_re + I*s2_im[i];
             complex_t sinc = (1-EXPC(-s2))/s2;
             if ((n*STRIDE+i == 0) && (ABS(s2_re)<=EPS)) sinc = 1 - s2*(0.5 - s2/6);
-            res_arr[n*STRIDE+i] = plan->resN_exp*(unit*sinc);
+            res_arr[n*STRIDE+i] = plan->resN_rel*(unit*sinc);
         }
 #else
         const complex_t s2 = s2_re + I*n*M_PI;
@@ -373,7 +372,7 @@ static void* eval_fourier_fft_precompute_thread(void* args_void) {
         if ((n == 0) && (ABS(s2_re)<=EPS)) sinc = 1 - s2*(0.5 - s2/6);
 
         const complex_t unit = A[N].unit_re + I*A[N].unit_im;
-        res_arr[n] = plan->resN_exp*(unit*sinc);
+        res_arr[n] = plan->resN_rel*(unit*sinc);
 #endif
         phase_advance(args, cells);
     }

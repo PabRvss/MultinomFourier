@@ -19,6 +19,7 @@ typedef struct {
     real_t W;
     real_t gamma;
     real_t l_rate;
+    real_t log_scale;  // log of the common magnitude factored out of every term of the series
 } multinomial;
 
 typedef struct {
@@ -43,11 +44,28 @@ typedef struct {
     real_t DQ_relative;
 } multinomial_result;
 
+// Format sign(x)*|x|*exp(log_scale) in decimal scientific notation, like printf's "%.*e", without
+// ever forming the product: the decimal exponent comes from the logarithm, so values far below the
+// range of double (or of __float128) print correctly instead of as 0. Used only by verbose output.
+static void fmt_scaled(char* buf, size_t len, mf_quad_t x, double log_scale, int digits) {
+    if (isnanq_quad(x) || isnan(log_scale)) { snprintf(buf, len, "nan"); return; }
+    if (!finiteq_quad(x) || isinf(log_scale)) { snprintf(buf, len, "%sinf", x < 0 ? "-" : ""); return; }
+    if (x == 0) { snprintf(buf, len, "%.*e", digits, 0.0); return; }
+    const double l10 = ((double)log_quad(fabsq_quad(x)) + log_scale)/M_LN10;
+    double e = floor(l10);
+    double m = pow(10.0, l10 - e);
+    const double r = pow(10.0, digits);
+    if (round(m*r) >= 10*r) { m /= 10; e += 1; }  // the mantissa would round to 10.0...
+    if (m < 1) { m *= 10; e -= 1; }               // or l10 - e rounded just below 0
+    snprintf(buf, len, "%s%.*fe%+03lld", x < 0 ? "-" : "", digits, m, (long long)e);
+}
+
 static multinomial* get_mult(const int_t N, const int_t K, const real_t* restrict probs, const options_t* options) {
     multinomial* mult = malloc(sizeof(multinomial));
     mult->K = K;
     mult->N = N;
     mult->probs = probs;
+    mult->log_scale = 0;
 
     mult->log_probs = malloc(K*sizeof(real_t));
     for (int_t k=0; k<K; k++) {
@@ -457,6 +475,10 @@ static void fill_gamma(multinomial* mult, multinomial_result* mult_res, const op
         mult->l_rate = (gamma_precision == FFT_NONE) ? 0 : nu;
         if (gamma_precision == FFT_NONE) fill_shifts(mult, gamma);
     }
+
+    // Reference magnitude for the terms of the series: any value of the right order of magnitude
+    // works. The series is summed in units of exp(log_scale) and the result is assembled in logs.
+    mult->log_scale = isfinite(final_eval) ? final_eval : 0;
 
     if (mult_res->status == 0 && (isnan(gamma) || !isfinite(gamma))) {
         mult_res->status = 3; // Could not solve the optimization of gamma

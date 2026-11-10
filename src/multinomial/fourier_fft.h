@@ -205,7 +205,7 @@ static void* eval_fourier_fft_sp_thread(void* args_void) {
 
         mf_qcomplex_t* restrict res_arr = args->res_arr;
         const real_t s2_re = M_PI*mult->gamma/mult->T;
-        const mf_quad_t resN_exp = expq(A[N].log_mod - l_prev*(real_t)N + lgac[N]);
+        const mf_quad_t resN_exp = expq(A[N].log_mod - l_prev*(real_t)N + lgac[N] - mult->log_scale);
 #ifdef USE_SIMD
         vec_t s2_im; for (int_t i=0; i<STRIDE; i++) s2_im[i] = (n*STRIDE + i)*M_PI;
 
