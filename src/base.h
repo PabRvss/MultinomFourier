@@ -43,6 +43,7 @@ typedef double real_t;
 #define EXP exp
 #define EXPC cexp
 #define LOG log
+#define LOG1P log1p
 
 #define MAX_EXP 700
 #define CONV_COUNT 50
@@ -59,6 +60,7 @@ typedef float real_t;
 #define EXP expf
 #define EXPC cexpf
 #define LOG logf
+#define LOG1P log1pf
 
 #define MAX_EXP 85
 #define CONV_COUNT 50

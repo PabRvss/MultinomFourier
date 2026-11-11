@@ -101,3 +101,15 @@ test_that("Multi-threading yields identical results", {
   fit_2th_e2 <- pval_fourier(x, p, n_threads = 2, extrapolate = 2)
   expect_equal(fit_1th_e2$pval, fit_2th_e2$pval, tolerance = 1e-8)
 })
+
+test_that("Atom counts the permutations of x tied with it (equal probabilities)", {
+  # At a vertex with uniform p, the K permutations of x all have probability p0 and the
+  # same statistic. Adding only p0/2 as the atom gave an error of about -37.5% here.
+  cases <- list(list(x = c(50, 0, 0, 0), p = rep(0.25, 4)),
+                list(x = c(30, 30, 0, 0, 0), p = rep(0.2, 5)))
+  for (cs in cases) for (st in c("llr", "pmf")) {
+    fo <- suppressWarnings(pval_fourier(cs$x, cs$p, stat = st, rel_eps = 1e-6, max_terms = 1e5))
+    ex <- pval_exact(cs$x, cs$p, stat = st)
+    expect_lt(abs(exp(fo$log_pval - ex$log_pval) - 1), 1e-3)
+  }
+})
