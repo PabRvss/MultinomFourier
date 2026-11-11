@@ -651,7 +651,7 @@ static void series(multinomial* mult, multinomial_result* mult_res, options_t* o
 
     // Assemble p = exp(log_scale)*p_series + p0/2 in logs: neither part is ever formed in natural
     // scale, so the result does not underflow when p is below the range of mf_quad_t.
-    const double log_atom = (double)mult->log_p0 - M_LN2;
+    const double log_atom = (double)mult->log_p0 + (double)mult->log_ties - M_LN2;  // half the atom at S0
     double log_series = -INFINITY;
     int sign_series = 0;
     if (p > 0) { sign_series = 1; log_series = mult->log_scale + (double)log_quad(p); }

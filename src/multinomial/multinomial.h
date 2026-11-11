@@ -14,6 +14,7 @@ typedef struct {
     cell_t* restrict matrix;
     mf_quad_t p0;
     real_t log_p0;
+    real_t log_ties;  // log of the number of permutations of x0 tied with it (see fill_p0)
     real_t r0;
     real_t T;
     real_t W;
@@ -93,6 +94,34 @@ static void fill_p0(multinomial* mult, const int_t* restrict x0, const options_t
     for (int_t k=0; k<K; k++) log_p0 += reward_logp(mult->log_probs[k], x0[k]);
     mult->log_p0 = lgac[N] + log_p0;
     mult->p0 = expq(mult->log_p0);
+
+    // Atom at S0: every permutation of x0 among categories with equal probability has probability
+    // p0 and the same value of the statistic (h_k depends on k only through p_k), so it is tied
+    // with the observation. Their number is prod_h u_h! / prod_j u_hj!, where u_h is the size of
+    // the h-th group of equal probabilities and u_hj the multiplicity of the j-th distinct count
+    // inside it. Other ties (not permutations) are not counted.
+    char* done = calloc(K, 1);
+    real_t log_ties = 0;
+    for (int_t i=0; i<K; i++) {
+        if (done[i]) continue;
+        const real_t pi = mult->probs[i];
+        int_t u = 0;
+        for (int_t j=i; j<K; j++) {
+            if (done[j] || ABS(mult->probs[j] - pi) > 1e-12*MAX(mult->probs[j], pi)) continue;
+            done[j] = 1;
+            u++;
+            int_t first = 1, c = 0;  // multiplicity of x0[j] among the group, counted at its first occurrence
+            for (int_t l=i; l<K; l++) {
+                if (ABS(mult->probs[l] - pi) > 1e-12*MAX(mult->probs[l], pi) || x0[l] != x0[j]) continue;
+                if (l < j) { first = 0; break; }
+                c++;
+            }
+            if (first) log_ties -= lgamma((double)c + 1);  // lgac may stop at N < K
+        }
+        log_ties += lgamma((double)u + 1);
+    }
+    free(done);
+    mult->log_ties = log_ties;
 }
 
 static void fill_probs(multinomial* mult) {
