@@ -1,7 +1,7 @@
 Package: MultinomFourier
 Type: Package
 Title: p-Values of Multinomial Goodness-of-Fit Tests by Fourier Series Inversion
-Version: 1.0
+Version: 1.1.0
 Authors@R: 
     c(person("Charles", "Thraves", role = "aut", comment = c(ORCID = "0000-0001-7491-7477")),
       person("Pablo", "Rivas", role = c("aut", "cre"), email = "pablo.rivas.g@ug.uchile.cl"),

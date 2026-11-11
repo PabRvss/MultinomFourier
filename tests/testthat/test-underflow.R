@@ -29,9 +29,8 @@ test_that("Fourier method underflow (< 5e-324) returns NA for pval and a finite 
   # Extreme instance: N = 1000, 4 categories, observation at a vertex.
   # True p-value: the 4 vertices, 4 * (1/4)^1000 = 4^(-999), below 5e-324.
   # The series used to stop at the first term here and report log(p0) = -1000*log(4).
-  # It now sums the series (thousands of terms). The estimate is still about 0.5 low in
-  # log scale because of the tie at the observation (4 outcomes share the statistic and
-  # only p0/2 is added), the same as for N = 50, which is in the double range.
+  # With the log-scale assembly and the tie correction at S0 (accounting for the 4
+  # tied vertices sharing the statistic), it computes the true p-value directly.
   x_tiny <- c(1000, 0, 0, 0)
   p_tiny <- rep(0.25, 4)
 
