@@ -173,6 +173,18 @@ static real_t exhaustive_tie_tolerance(const multinomial* mult) {
     return EXHAUSTIVE_TIE_REL*scale;
 }
 
+// Exact sums the probability of every outcome in the tail as EXP(MAX_EXP + log p_x), a fixed
+// offset that keeps p_x in range only while log p_x > -MAX_EXP - 708 (p ~ 1e-612): below that the
+// terms are subnormal or zero and the p-value is wrong or -Inf with status 0. This shift is added
+// to the log-probability at the root, so it reaches every term, and is chosen so that the
+// observation's own probability p0 is scaled to 1 when it would otherwise fall below 1. Since
+// p >= p0, the tail mass is then at least 1, and terms down to p0*e^-708 stay normal. It is 0 when
+// log p0 >= -MAX_EXP, so p-values above about 1e-304 are computed exactly as before.
+static real_t exhaustive_log_shift(const multinomial* mult) {
+    const real_t s = -((real_t)MAX_EXP + mult->log_p0);
+    return (isfinite(s) && s > 0) ? s : 0;
+}
+
 static void fill_interval(multinomial* mult, const options_t* options) {
     const int_t K = mult->K;
     const int_t N = mult->N;

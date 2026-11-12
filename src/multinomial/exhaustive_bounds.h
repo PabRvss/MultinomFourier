@@ -226,7 +226,14 @@ static inline real_t bounds_suffix_logp(const bounds_ctx_t* restrict ctx, const 
 // both read from tables of cumulative sums built once, one from each end (tail_lo[k][m][j] =
 // sum_{n<=j} w, tail_hi[k][m][j] = sum_{n>=j} w), so no tail is obtained by subtraction. That is
 // two lookups and one exp per node instead of one exp per accepted value, which is where most of
-// the time went after the binary search. The summation order changes, so the p-value agrees with
+// the time went after the binary search. The tables hold the logarithms of the cumulative sums:
+// stored as plain probabilities, the tails of w_{k,m} far from its mode underflow (to subnormals
+// or 0) although the node's scale is huge, and the accepted mass of those nodes was lost, which
+// made the p-value too small below about 1e-500 (6.7 % at 1e-598). Now an entry below
+// BOUNDS_TAIL_LOG_BELOW is stored as its logarithm instead, which is negative, so the sign tells
+// the two apart (a probability is >= 0, and the log of one below 1e-280 is < -644). Entries above it
+// are the same plain sums as before, so whenever no stored log is read and the node's scale is
+// representable, the accepted mass is computed exactly as before. The summation order changes, so the p-value agrees with
 // the linear scan only up to rounding (relative 4e-14 in the tests), not bit for bit. Memory:
 // 2 (K-2) (N+1)(N+2)/2 doubles (96 MB for K = 5, N = 2000); above BOUNDS_TAIL_MAX_BYTES the tables
 // are not built and the accepted values are summed one at a time, as in the linear scan.
@@ -301,6 +308,20 @@ static inline void bounds_superlevel(
 #define BOUNDS_TAIL_MAX_BYTES ((int64_t)1 << 30)
 #endif
 
+// Tail-table entries below this are stored as their (negative) logarithm; see "Tail tables".
+#ifndef BOUNDS_TAIL_LOG_BELOW
+#define BOUNDS_TAIL_LOG_BELOW 1e-280
+#endif
+// Largest log-scale of a node for which EXP(log_scale)*w is computed directly (w <= 1).
+#define BOUNDS_LOG_SCALE_MAX 700
+
+// log(exp(a) + exp(b)), with -INFINITY as log 0.
+static inline real_t bounds_logaddexp(const real_t a, const real_t b) {
+    if (a == -INFINITY) return b;
+    if (b == -INFINITY) return a;
+    return a > b ? a + LOG1P(EXP(b - a)) : b + LOG1P(EXP(a - b));
+}
+
 // Start of row (k, m) in tail_lo / tail_hi: rows of length m+1, stored by k, then m.
 static inline int64_t bounds_tail_offset(const int_t N, const int_t k, const int_t m) {
     return (int64_t)k*((int64_t)(N+1)*(N+2)/2) + (int64_t)m*(m+1)/2;
@@ -357,10 +378,16 @@ static real_t exhaustive_bounds_recurse_bs(
     if (ctx->tail_lo) {  // accepted values in closed form (see "Tail tables")
         if (ga > gb) { ga = N_remain+1; gb = N_remain; }  // everything accepted
         const int64_t off = bounds_tail_offset(ctx->N, k, N_remain);
-        real_t w = 0;
-        if (ga > 0) w += ctx->tail_lo[off+ga-1];
-        if (gb < N_remain) w += ctx->tail_hi[off+gb+1];
-        if (w > 0) p += EXP(MAX_EXP + logp_acc + ctx->tail_scale[k*stride+N_remain])*w;
+        const real_t log_scale = MAX_EXP + logp_acc + ctx->tail_scale[k*stride+N_remain];
+        const real_t w_lo = ga > 0 ? ctx->tail_lo[off+ga-1] : 0;
+        const real_t w_hi = gb < N_remain ? ctx->tail_hi[off+gb+1] : 0;
+        if (w_lo >= 0 && w_hi >= 0 && log_scale <= BOUNDS_LOG_SCALE_MAX) {  // as before the fix
+            const real_t w = w_lo + w_hi;
+            if (w > 0) p += EXP(log_scale)*w;
+        } else {  // a tail stored as a log, or a scale that would overflow on its own
+            if (ga > 0) p += EXP(log_scale + (w_lo >= 0 ? LOG(w_lo) : w_lo));
+            if (gb < N_remain) p += EXP(log_scale + (w_hi >= 0 ? LOG(w_hi) : w_hi));
+        }
         for (int_t n = ga; n < ha; n++) p += exhaustive_bounds_recurse(ctx, k1, N_remain-n, r_acc + reward_k[n], logp_acc + logp_k[n]);
         for (int_t n = hb < gb ? hb+1 : gb+1; n <= gb; n++) p += exhaustive_bounds_recurse(ctx, k1, N_remain-n, r_acc + reward_k[n], logp_acc + logp_k[n]);
         return p;
@@ -619,6 +646,18 @@ static void exhaustive_bounds(multinomial* mult, multinomial_result* mult_res, o
                     hi[m] = lo[m];
                     for (int_t n = m-1; n >= 0; n--) hi[n] = lo[n] + hi[n+1];
                     for (int_t n = 1; n <= m; n++) lo[n] += lo[n-1];
+                    // Entries below BOUNDS_TAIL_LOG_BELOW (a prefix of lo, a suffix of hi, since the
+                    // cumulative sums are monotone) are recomputed as log-sums and stored as such.
+                    real_t acc = -INFINITY;
+                    for (int_t n = 0; n <= m && lo[n] < BOUNDS_TAIL_LOG_BELOW; n++) {
+                        acc = bounds_logaddexp(acc, logp_k[n] - lgac[m-n] + (real_t)(m-n)*lq - sc);
+                        lo[n] = acc;
+                    }
+                    acc = -INFINITY;
+                    for (int_t n = m; n >= 0 && hi[n] < BOUNDS_TAIL_LOG_BELOW; n--) {
+                        acc = bounds_logaddexp(acc, logp_k[n] - lgac[m-n] + (real_t)(m-n)*lq - sc);
+                        hi[n] = acc;
+                    }
                 }
             }
         }
@@ -635,7 +674,8 @@ static void exhaustive_bounds(multinomial* mult, multinomial_result* mult_res, o
     };
 
     real_t p_acc = 0;
-    const real_t logp_acc0 = lgac[N];
+    const real_t log_shift = exhaustive_log_shift(mult);  // see exhaustive_log_shift
+    const real_t logp_acc0 = lgac[N] + log_shift;
     const real_t r_start = -exhaustive_tie_tolerance(mult);  // accept S - S0 <= tau: exact ties count
     atomic_int timed_out;
     atomic_init(&timed_out, 0);
@@ -647,14 +687,24 @@ static void exhaustive_bounds(multinomial* mult, multinomial_result* mult_res, o
         mult_res->pval = NAN;
         mult_res->log_pval = NAN;
     } else {
-        real_t raw_p = p_acc;
-        p_acc = p_acc*EXP(-MAX_EXP);
-        if (options->verbose) Rprintf("exhaustive (bounds) = %.8e\n", p_acc);
-        mult_res->pval = (p_acc >= 5e-324) ? p_acc : 0.0;
-        mult_res->log_pval = (raw_p > 0) ? (log(raw_p) - (double)MAX_EXP) : -INFINITY;
-        mult_res->converged = 1;
+        const real_t raw_p = p_acc;
+        // The observation is always accepted, so p >= p0 and the shifted mass is at least
+        // exp(max(MAX_EXP + log p0, 0)) >= 1 (see exhaustive_log_shift); 0.5 leaves room for
+        // rounding in the log-probabilities. A non-finite mass, or one below that, means the sum
+        // overflowed (it needs p/p0 < e^709) or lost even the mass of the observation, which would
+        // otherwise be reported as a wrong p-value with status 0.
+        const int_t ok = isfinite(raw_p) && raw_p >= 0.5;
+        const double log_p = ok ? (log(raw_p) - (double)MAX_EXP - (double)log_shift) : NAN;
+        p_acc = exp(log_p);
+        if (options->verbose) {
+            if (ok) Rprintf("exhaustive (bounds) = %.8e (log = %.10f)\n", p_acc, log_p);
+            else Rprintf("exhaustive (bounds): numerical failure, scaled mass = %.8e\n", raw_p);
+        }
+        mult_res->pval = ok ? ((p_acc >= 5e-324) ? p_acc : 0.0) : NAN;
+        mult_res->log_pval = log_p;
+        mult_res->converged = ok;
         mult_res->terms = -1;
-        mult_res->status = 0;
+        mult_res->status = ok ? 0 : 4;
     }
 
     free(reward);
