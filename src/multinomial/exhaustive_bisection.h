@@ -427,7 +427,8 @@ static void exhaustive_bisection(multinomial* mult, multinomial_result* mult_res
     }
 
     real_t p_acc = 0;
-    const real_t logp_acc = lgac[N];
+    const real_t log_shift = exhaustive_log_shift(mult);  // see exhaustive_log_shift
+    const real_t logp_acc = lgac[N] + log_shift;
     const real_t r_start = -exhaustive_tie_tolerance(mult);  // accept S - S0 <= tau: exact ties count
     atomic_int timed_out;
     atomic_init(&timed_out, 0);
@@ -440,13 +441,23 @@ static void exhaustive_bisection(multinomial* mult, multinomial_result* mult_res
         mult_res->pval = NAN;
         mult_res->log_pval = NAN;
     } else {
-        real_t raw_p = p_acc;
-        p_acc = p_acc*EXP(-MAX_EXP);
-        if (options->verbose) Rprintf("exhaustive = %.8e\n", p_acc);
-        mult_res->pval = (p_acc >= 5e-324) ? p_acc : 0.0;
-        mult_res->log_pval = (raw_p > 0) ? (log(raw_p) - (double)MAX_EXP) : -INFINITY;
-        mult_res->converged = 1;
-        mult_res->status = 0;
+        const real_t raw_p = p_acc;
+        // The observation is always accepted, so p >= p0 and the shifted mass is at least
+        // exp(max(MAX_EXP + log p0, 0)) >= 1 (see exhaustive_log_shift); 0.5 leaves room for
+        // rounding in the log-probabilities. A non-finite mass, or one below that, means the sum
+        // overflowed (it needs p/p0 < e^709) or lost even the mass of the observation, which would
+        // otherwise be reported as a wrong p-value with status 0.
+        const int_t ok = isfinite(raw_p) && raw_p >= 0.5;
+        const double log_p = ok ? (log(raw_p) - (double)MAX_EXP - (double)log_shift) : NAN;
+        p_acc = exp(log_p);
+        if (options->verbose) {
+            if (ok) Rprintf("exhaustive = %.8e (log = %.10f)\n", p_acc, log_p);
+            else Rprintf("exhaustive: numerical failure, scaled mass = %.8e\n", raw_p);
+        }
+        mult_res->pval = ok ? ((p_acc >= 5e-324) ? p_acc : 0.0) : NAN;
+        mult_res->log_pval = log_p;
+        mult_res->converged = ok;
+        mult_res->status = ok ? 0 : 4;
     }
     mult_res->terms = -1;
 

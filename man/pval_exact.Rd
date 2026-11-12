@@ -75,7 +75,9 @@ An object of class \code{"multinomfourier"}: a list with components
     or \code{"power-divergence (lambda = 0.6667)"}.}
   \item{method}{\code{"exact"}.}
   \item{status}{\code{0}: the computation finished; \code{1}:
-    \code{max_time} was reached before it finished.}
+    \code{max_time} was reached before it finished; \code{4}: the accumulated
+    probability came out zero or not finite, so the \pvalue{} would be wrong;
+    both \code{pval} and \code{log_pval} are then \code{NA}.}
   \item{message}{Human-readable version of \code{status}. For \code{status = 0}
     it reads \code{"Converged"}, a label shared with \code{\link{pval_fourier}}.}
   \item{time}{Total wall-clock time in seconds.}

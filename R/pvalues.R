@@ -19,7 +19,7 @@ build_multfourier_s3 <- function(raw, x, p, elapsed, requested_method, stat_labe
   # 1: Maximum time reached
   # 2: Maximum number of terms reached
   # 3: Could not solve the optimization of gamma
-  # 4: Numerical instability detected (magnitude explosion)
+  # 4: Numerical instability detected (series magnitude explosion, or Exact mass out of range)
   # 5: First term of the series underflowed
   status_id <- as.integer(raw$status)
   status_msg <- switch(
@@ -28,7 +28,7 @@ build_multfourier_s3 <- function(raw, x, p, elapsed, requested_method, stat_labe
     "1" = "Maximum time reached",
     "2" = "Maximum number of terms reached",
     "3" = "Could not solve the optimization of gamma",
-    "4" = "Numerical instability detected (magnitude explosion)",
+    "4" = "Numerical instability detected",
     "5" = "First term of the series underflowed; no p-value",
     "Unknown status"
   )
@@ -548,7 +548,9 @@ pval_fourier <- function(x,
 #'     or \code{"power-divergence (lambda = 0.6667)"}.}
 #'   \item{method}{\code{"exact"}.}
 #'   \item{status}{\code{0}: the computation finished; \code{1}:
-#'     \code{max_time} was reached before it finished.}
+#'     \code{max_time} was reached before it finished; \code{4}: the accumulated
+#'     probability came out zero or not finite, so the \pvalue{} would be wrong;
+#'     both \code{pval} and \code{log_pval} are then \code{NA}.}
 #'   \item{message}{Human-readable version of \code{status}. For \code{status = 0}
 #'     it reads \code{"Converged"}, a label shared with \code{\link{pval_fourier}}.}
 #'   \item{time}{Total wall-clock time in seconds.}
